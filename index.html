@@ -1,0 +1,2149 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>재고 관리 — FITI 의장소재팀</title>
+<meta name="theme-color" content="#ffffff">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="재고 관리">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f8f9fc;--bg2:#ffffff;--bg3:#f0f2f7;--bg4:#e8ebf2;--border:rgba(30,40,80,0.08);--border2:rgba(30,40,80,0.14);--text:#1a2035;--text2:#5a6484;--text3:#9aa3be;--accent:#2563eb;--accent2:#1d55d4;--accent-dim:rgba(37,99,235,0.10);--blue-dim:rgba(37,99,235,0.10);--amber:#d97706;--amber-dim:rgba(217,119,6,0.10);--red:#dc2626;--red-dim:rgba(220,38,38,0.10);--green:#16a34a;--green-dim:rgba(22,163,74,0.10);--radius:8px;--radius-lg:12px;--font:"Noto Sans KR",sans-serif;--mono:"JetBrains Mono",monospace;}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);font-size:14px;line-height:1.5;overscroll-behavior:none;}
+.app{max-width:430px;margin:0 auto;height:100dvh;display:flex;flex-direction:column;background:var(--bg);position:relative;overflow:hidden;}
+.header{padding:13px 16px 12px;padding-top:max(13px,env(safe-area-inset-top,13px));background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:50;box-shadow:0 1px 3px rgba(30,40,80,0.06);}
+.header-left{display:flex;align-items:center;gap:10px;}
+.logo{width:34px;height:34px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:#fff;letter-spacing:-.3px;flex-shrink:0;}
+.header-title{font-size:15px;font-weight:700;color:var(--text);}
+.header-sub{font-size:11px;color:var(--text2);}
+.header-badge{display:flex;align-items:center;gap:5px;background:var(--accent-dim);border:1px solid rgba(37,99,235,0.2);border-radius:20px;padding:4px 10px;flex-shrink:0;}
+.header-badge .dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:pulse 2s infinite;}
+.header-badge span{font-size:11px;color:var(--accent);font-weight:500;white-space:nowrap;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.nav-l1{display:flex;background:var(--bg2);border-bottom:1px solid var(--border);flex-shrink:0;}
+.nav-l1-btn{flex:1;padding:11px 4px;border:none;background:none;cursor:pointer;color:var(--text3);font-size:12px;font-family:var(--font);font-weight:500;letter-spacing:.2px;transition:color .15s;position:relative;white-space:nowrap;}
+.nav-l1-btn.active{color:var(--accent);font-weight:700;}
+.nav-l1-btn.active::after{content:"";position:absolute;bottom:0;left:15%;right:15%;height:2px;background:var(--accent);border-radius:2px 2px 0 0;}
+.nav-l2{display:flex;background:var(--bg3);border-bottom:1px solid var(--border);flex-shrink:0;padding:6px 14px;gap:6px;overflow-x:auto;scrollbar-width:none;}
+.nav-l2::-webkit-scrollbar{display:none;}
+.nav-l2-btn{flex-shrink:0;padding:5px 14px;border-radius:20px;font-size:11px;font-weight:600;font-family:var(--font);border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;transition:all .15s;}
+.nav-l2-btn.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.content{flex:1;overflow-y:auto;overflow-x:hidden;}
+.content::-webkit-scrollbar{width:3px;}
+.content::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+.section{display:none;animation:fadeIn .2s ease;}
+.section.active{display:block;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.pad{padding:14px;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;box-shadow:0 1px 4px rgba(30,40,80,0.06);}
+.badge{display:inline-flex;align-items:center;font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;letter-spacing:.3px;}
+.badge-green{background:rgba(22,163,74,0.12);color:var(--green);}
+.badge-amber{background:#fef3c7;color:#92400e;}
+.badge-red{background:#fee2e2;color:#991b1b;}
+.badge-gray{background:var(--bg3);color:var(--text2);}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px;}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-lg);padding:10px 12px;box-shadow:0 1px 4px rgba(30,40,80,0.06);}
+.stat-label{font-size:10px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;}
+.stat-val{font-size:22px;font-weight:800;line-height:1.1;}
+.stat-val.blue{color:var(--accent);}.stat-val.green{color:var(--green);}.stat-val.amber{color:var(--amber);}.stat-val.red{color:var(--red);}
+.search-wrap{position:relative;margin-bottom:10px;}
+.search-input{width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:13px;padding:9px 12px 9px 34px;outline:none;transition:border-color .15s;}
+.search-input:focus{border-color:var(--accent);}
+.search-input::placeholder{color:var(--text3);}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:14px;pointer-events:none;}
+.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;margin-bottom:10px;}
+.chips::-webkit-scrollbar{display:none;}
+.chip{flex-shrink:0;padding:4px 11px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);transition:all .15s;}
+.chip.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.list-item{display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;}
+.list-item:last-child{border-bottom:none;}
+.list-item:hover{background:var(--bg3);}
+.list-item:active{background:var(--bg4);}
+.item-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.item-info{flex:1;min-width:0;}
+.item-name{font-size:12px;font-weight:500;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;}
+.item-meta{font-size:10px;color:var(--text2);}
+.item-qty{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--text2);white-space:nowrap;margin-left:4px;}
+.show-more-btn{width:100%;padding:11px;background:var(--bg3);border:none;font-family:var(--font);font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;transition:background .15s;}
+.show-more-btn:hover{background:var(--bg4);}
+.ci-equip-item{padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;}
+.ci-equip-item:last-child{border-bottom:none;}
+.ci-equip-item:hover{background:var(--bg3);}
+.ci-equip-header{display:flex;align-items:center;gap:10px;}
+.ci-equip-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.ci-equip-info{flex:1;}
+.ci-equip-name{font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px;}
+.ci-equip-meta{font-size:11px;color:var(--text2);}
+.ci-parts-list{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
+.ci-part-row{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border-radius:var(--radius);border:1px solid var(--border);cursor:pointer;transition:all .15s;}
+.ci-part-row:hover{background:var(--bg4);border-color:var(--accent);}
+.ci-part-info{flex:1;min-width:0;}
+.ci-part-name{font-size:11px;font-weight:500;color:var(--text);margin-bottom:2px;}
+.ci-part-code{font-family:var(--mono);font-size:9px;color:var(--text3);}
+.ci-part-right{text-align:right;flex-shrink:0;}
+.ci-part-cnt{font-family:var(--mono);font-size:13px;font-weight:700;}
+.progress-bar{height:3px;background:var(--bg4);border-radius:2px;margin-top:4px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:2px;}
+.log-item{padding:11px 14px;border-bottom:1px solid var(--border);}
+.log-item:last-child{border-bottom:none;}
+.log-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:4px;}
+.log-name{font-size:12px;font-weight:500;color:var(--text);flex:1;}
+.log-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;flex-shrink:0;}
+.log-use{background:var(--red-dim);color:var(--red);}
+.log-add{background:var(--green-dim);color:var(--green);}
+.log-bot{display:flex;justify-content:space-between;align-items:center;}
+.log-detail{font-size:11px;color:var(--text2);}
+.log-time{font-size:10px;color:var(--text3);font-family:var(--mono);}
+.add-fab{display:flex;align-items:center;justify-content:center;gap:6px;margin:12px 14px;padding:11px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-size:13px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all .15s;}
+.add-fab:hover{background:var(--accent2);}
+.add-fab:active{transform:scale(.98);}
+/* MODAL centered card */
+.modal-overlay{position:fixed;inset:0;background:rgba(10,15,40,0.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px 16px;opacity:0;pointer-events:none;transition:opacity .22s;}
+.modal-overlay.open{opacity:1;pointer-events:all;}
+.modal{width:100%;max-width:420px;background:var(--bg2);border-radius:16px;padding:0 0 env(safe-area-inset-bottom,8px);transform:scale(.95) translateY(12px);transition:transform .28s cubic-bezier(.22,.68,0,1.2);max-height:calc(100dvh - 80px);display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(10,15,40,0.25);}
+.modal-overlay.open .modal{transform:scale(1) translateY(0);}
+.modal-header{padding:16px 16px 12px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;flex-shrink:0;}
+.modal-title{font-size:14px;font-weight:700;color:var(--text);line-height:1.4;flex:1;padding-right:8px;}
+.modal-sub{font-size:11px;color:var(--text2);margin-top:2px;}
+.modal-close{background:var(--bg3);border:none;border-radius:50%;width:28px;height:28px;cursor:pointer;color:var(--text2);font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.modal-body{padding:14px 16px;overflow-y:auto;flex:1;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
+.action-tabs{display:flex;gap:0;margin-bottom:14px;border:1px solid var(--border2);border-radius:var(--radius);overflow:hidden;}
+.action-tab{flex:1;padding:8px 2px;font-size:11px;font-weight:600;font-family:var(--font);border:none;cursor:pointer;background:var(--bg3);color:var(--text2);transition:all .15s;}
+.action-tab.active{background:var(--accent);color:#fff;}
+.info-block{background:var(--bg3);border-radius:var(--radius);padding:10px 12px;margin-bottom:14px;border-left:3px solid var(--accent);}
+.info-block-row{display:flex;justify-content:space-between;font-size:11px;padding:2px 0;}
+.info-block-label{color:var(--text2);}
+.info-block-val{font-weight:500;color:var(--text);font-family:var(--mono);}
+.form-group{margin-bottom:12px;}
+.form-label{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:5px;}
+.form-control{width:100%;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);color:var(--text);font-family:var(--font);font-size:13px;padding:9px 11px;outline:none;transition:border-color .15s;}
+.form-control:focus{border-color:var(--accent);}
+.form-control::placeholder{color:var(--text3);}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.qty-ctrl{display:flex;align-items:center;gap:10px;padding:4px 0;}
+.qty-btn{width:34px;height:34px;border-radius:var(--radius);border:1px solid var(--border2);background:var(--bg3);cursor:pointer;font-size:18px;font-weight:700;color:var(--text);display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.qty-btn:hover{background:var(--bg4);}
+.qty-display{font-size:20px;font-weight:800;color:var(--text);min-width:36px;text-align:center;font-family:var(--mono);}
+.date-tags{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0;}
+.date-tag{font-size:10px;padding:3px 9px;border-radius:20px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);}
+.date-tag span{color:var(--accent);font-weight:700;}
+/* 폐기 예정일 상태 색상 */
+.date-tag.expires-ok span{color:var(--green);}
+.date-tag.expires-warn span{color:var(--amber);}
+.date-tag.expires-danger span{color:var(--red);}
+.submit-btn{width:100%;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-size:13px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all .15s;margin-top:4px;}
+.submit-btn:hover{background:var(--accent2);}
+.submit-btn:active{transform:scale(.98);}
+.submit-btn.danger{background:var(--red);}
+.submit-btn.outline{background:none;color:var(--accent);border:1px solid rgba(37,99,235,.4);}
+.submit-btn.outline:hover{background:var(--blue-dim);}
+/* 입출고 세그먼트 버튼 */
+.seg-wrap{display:flex;border:1px solid var(--border2);border-radius:var(--radius);overflow:hidden;margin-bottom:14px;}
+.seg-btn{flex:1;padding:9px 8px;font-size:12px;font-weight:700;font-family:var(--font);border:none;cursor:pointer;background:var(--bg3);color:var(--text2);transition:all .15s;}
+.seg-btn.in.active{background:var(--green);color:#fff;}
+.seg-btn.out.active{background:var(--red);color:#fff;}
+.toast{position:fixed;bottom:calc(60px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%) translateY(20px);background:#1a2035;border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:9px 18px;font-size:13px;font-weight:500;color:#fff;opacity:0;transition:all .3s;z-index:300;white-space:nowrap;pointer-events:none;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+.toast.success{background:#14532d;}
+.toast.error{background:#7f1d1d;}
+.offline-banner{background:#fef3c7;border-bottom:1px solid rgba(217,119,6,.3);padding:7px 14px;font-size:11px;color:var(--amber);text-align:center;display:none;font-weight:500;}
+.offline-banner.show{display:block;}
+/* 인쇄 스타일 */
+@media print{
+  body{background:#fff;font-size:11px;}
+  .app{height:auto;max-width:100%;overflow:visible;}
+  .header,.nav-l1,.nav-l2,.add-fab,.show-more-btn,.modal-overlay,.toast,.offline-banner,.no-print{display:none!important;}
+  .content{overflow:visible;flex:none;}
+  .section{display:none!important;}
+  #print-area{display:block!important;}
+  .print-header{margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #1a2035;}
+  .print-title{font-size:16px;font-weight:700;color:#1a2035;}
+  .print-meta{font-size:11px;color:#5a6484;margin-top:4px;}
+  .print-table{width:100%;border-collapse:collapse;margin-top:12px;}
+  .print-table th{background:#f0f2f7;padding:7px 10px;text-align:left;font-size:10px;font-weight:700;border:1px solid #ddd;color:#5a6484;}
+  .print-table td{padding:7px 10px;border:1px solid #ddd;font-size:11px;vertical-align:middle;}
+  .print-table tr:nth-child(even) td{background:#fafafa;}
+  .print-badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:9px;font-weight:700;}
+  .print-badge.in{background:#dcfce7;color:#16a34a;}
+  .print-badge.out{background:#fee2e2;color:#dc2626;}
+  .print-footer{margin-top:20px;padding-top:10px;border-top:1px solid #ddd;font-size:10px;color:#9aa3be;text-align:right;}
+}
+#print-area{display:none;}
+@media(max-width:899px){.app{max-width:100vw;}}
+@media(min-width:900px){body{padding:18px;}.app{max-width:min(1400px,calc(100vw - 36px));height:calc(100dvh - 36px);border:1px solid var(--border);border-radius:18px;box-shadow:0 12px 40px rgba(30,40,80,0.12);}}
+</style>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import {
+    getFirestore, collection, doc, addDoc, updateDoc, deleteDoc,
+    onSnapshot, query, orderBy, serverTimestamp, setDoc, getDoc, writeBatch
+  } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBA1A3_JNLEvrp1PhjAhg3-sWCvPtOaTpE",
+    authDomain: "team-equipment-scheduler.firebaseapp.com",
+    projectId: "team-equipment-scheduler",
+    storageBucket: "team-equipment-scheduler.firebasestorage.app",
+    messagingSenderId: "562135839911",
+    appId: "1:562135839911:web:337c16e1cff7d716fdd782"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  window._db = db;
+  window._fbFns = {
+    collection, doc, addDoc, updateDoc, deleteDoc,
+    onSnapshot, query, orderBy, serverTimestamp, setDoc, getDoc, writeBatch
+  };
+
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+</head>
+<body>
+<div class="app">
+  <div class="offline-banner" id="offline-banner">오프라인 상태 — 저장된 데이터를 표시 중입니다</div>
+  <div class="header">
+    <div class="header-left">
+      <div class="logo">재고</div>
+      <div>
+        <div class="header-title">의장소재팀 재고관리</div>
+        <div class="header-sub">FITI 의장소재팀 · 2026년 1분기</div>
+      </div>
+    </div>
+    <div class="header-badge"><div class="dot"></div><span id="hdr-badge-text">—</span></div>
+  </div>
+  <div class="nav-l1">
+    <button class="nav-l1-btn active" onclick="switchL1('chem',this)">약품 관리</button>
+    <button class="nav-l1-btn" onclick="switchL1('consumable',this)">소모품 관리</button>
+    <button class="nav-l1-btn" onclick="switchL1('log',this)">기록 로그</button>
+  </div>
+  <div class="nav-l2" id="nav-l2" style="display:none;"><!-- JS 렌더 --></div>
+  <div class="content">
+    <!-- 약품 관리 -->
+    <div class="section active" id="sec-chem">
+      <div class="pad">
+        <div class="stats-row">
+          <div class="stat-card"><div class="stat-label">전체</div><div class="stat-val blue" id="c-total">68</div></div>
+          <div class="stat-card"><div class="stat-label">정상</div><div class="stat-val green" id="c-ok">—</div></div>
+          <div class="stat-card"><div class="stat-label">주의/만료</div><div class="stat-val amber" id="c-warn">—</div></div>
+        </div>
+        <div style="font-size:10px;color:var(--text3);background:var(--bg3);border-radius:var(--radius);padding:6px 10px;border:1px solid var(--border);margin-bottom:10px;">
+          상태 기준: <span style="color:var(--green);font-weight:700;">정상</span> 폐기 90일 이상 &nbsp;·&nbsp; <span style="color:var(--amber);font-weight:700;">주의</span> 90일 미만 &nbsp;·&nbsp; <span style="color:var(--red);font-weight:700;">만료</span> 폐기일 도래
+        </div>
+        <div class="search-wrap">
+          <span class="search-icon">⌕</span>
+          <input class="search-input" type="text" placeholder="약품명 검색..." id="chem-search" oninput="renderChemList()">
+        </div>
+        <div class="chips" id="chem-chips"></div>
+      </div>
+      <div class="card" style="margin:0 14px 14px;">
+        <div id="chem-list"></div>
+        <button class="show-more-btn" id="chem-more" onclick="chemShowMore()" style="display:none"></button>
+      </div>
+      <button class="add-fab" onclick="openChemModal(null,'new')">+ 신규 약품 등록</button>
+    </div>
+    <!-- 소모품 동적 섹션 (JS가 렌더) -->
+    <div class="section" id="sec-consumable-dynamic">
+      <div id="consumable-section-content"></div>
+    </div>
+    <!-- 기록 로그 -->
+    <div class="section" id="sec-log">
+      <div class="pad" style="padding-bottom:8px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <span style="font-size:13px;font-weight:700;color:var(--text);">입출고 기록</span>
+          <button class="no-print" onclick="printLog()" style="padding:6px 14px;background:var(--accent-dim);border:1px solid rgba(37,99,235,.25);border-radius:20px;font-size:11px;font-weight:700;color:var(--accent);cursor:pointer;font-family:var(--font);">인쇄 / 출력</button>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:6px;">
+          <select class="form-control" id="log-filter-action" onchange="renderLogList()" style="font-size:11px;padding:6px 10px;flex:1;">
+            <option value="all">전체</option><option value="add">입고만</option><option value="use">출고만</option>
+          </select>
+          <select class="form-control" id="log-filter-month" onchange="renderLogList()" style="font-size:11px;padding:6px 10px;flex:1.2;">
+            <option value="all">전체 기간</option>
+          </select>
+        </div>
+        <div id="log-count-bar" style="font-size:11px;color:var(--text3);padding:2px 0 4px;"></div>
+      </div>
+      <div class="card" style="margin:0 14px 14px;"><div id="log-list"></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- 인쇄 전용 영역 -->
+<div id="print-area">
+  <div class="print-header">
+    <div class="print-title">FITI 의장소재팀 재고관리 — 입출고 기록</div>
+    <div class="print-meta" id="print-meta"></div>
+  </div>
+  <table class="print-table" id="print-table"></table>
+  <div class="print-footer">FITI 의장소재팀 재고관리 시스템 · 인쇄일: <span id="print-date"></span></div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div style="flex:1;min-width:0;"><div class="modal-title" id="modal-title">상세 정보</div><div class="modal-sub" id="modal-sub"></div></div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const MEMBERS=['의장_최재용','의장_이정현','의장_이경옥','의장_김대성','의장_최용덕','의장_이명호','의장_이재원','의장_최원혁','의장_이보윤','의장_장병국','의장_김동현','의장_곽현준','의장_김효빈','의장_임정연','의장_최준호'];
+const ALL_CATS=['all','산류','염류','알칼리류','인산염류','중금속염','중금속산화물','글리콜류','오일/부동액','세정제류','선크림류','기타'];
+function getStatus(qty){const n=parseInt(qty)||0;if(n===0)return'warn';if(n===1)return'low';return'ok';}
+function statusBadge(s){if(s==='ok')return'<span class="badge badge-green">정상</span>';if(s==='low')return'<span class="badge badge-amber">부족</span>';return'<span class="badge badge-red">주의</span>';}
+function dotColor(s){return s==='ok'?'var(--green)':s==='low'?'var(--amber)':'var(--red)';}
+function partSt(p){if(p.need===0)return'ok';if(p.have===0)return'warn';if(p.have<p.need)return'low';return'ok';}
+function equipSt(e){const ss=e.parts.map(partSt);if(ss.includes('warn'))return'warn';if(ss.includes('low'))return'low';return'ok';}
+function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+const chemicals=[
+{id:1,name:'Sulfuric acid(황산) 98%, 1kg',handler:'고분자 파트',purpose:'연료전지 정전위 분극 및 변동부하 시험',qty:'2 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'산류'},
+{id:2,name:'Sodium chloride(염화나트륨), 1kg',handler:'고분자 파트',purpose:'KS M ISO 6353-2 인공땀액 제작 용도',qty:'3 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'염류'},
+{id:3,name:'Acetic acid,glacial(빙초산), 1kg',handler:'고분자 파트',purpose:'KS M ISO 6353-2 인공땀액 제작 용도',qty:'3 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'산류'},
+{id:4,name:'Zinc chloride(염화아연), 500g',handler:'의장_이보윤',purpose:'르노 시험 용액제조용',qty:'2 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'염류'},
+{id:5,name:'Calcium chloride anhydrous(무수 염화칼슘), 1kg',handler:'고분자 파트',purpose:'고무 내염수성 시험용',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'염류'},
+{id:6,name:'Sodium phosphate monobasic dihydrate (인산일나트륨 일수화물), 1kg',handler:'고분자 파트',purpose:'KS D 8135 시험액 제작 용도',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'인산염류'},
+{id:7,name:'Sodium hydroxide beads(수산화나트륨 펠렛), 1kg',handler:'고분자 파트',purpose:'MS625-15 내알칼리성 시험',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'알칼리류'},
+{id:8,name:'Calcium chloride dihydrate(염화칼슘 이수화물) 500g',handler:'고분자 파트',purpose:'고무 내염수성 시험용',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'염류'},
+{id:9,name:'Copper(II) chloride dihydrate (염화구리(II) 이수화물) 97.5% 1kg',handler:'고분자 파트',purpose:'MS625-04 미세다공률 시험',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'중금속염'},
+{id:10,name:'Copper(II) sulfate pentahydrate (황산구리(II) 오수화물) 99.5% 500g',handler:'고분자 파트',purpose:'MS625-04 미세다공률 시험',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'중금속염'},
+{id:11,name:'Chromium(VI) oxide (산화크롬(VI)) 500g',handler:'고분자 파트',purpose:'KS D 8135 시험액 제작 용도',qty:'2 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'중금속산화물'},
+{id:12,name:'Nitric acid (질산) 60% 1kg',handler:'고분자 파트',purpose:'KS D 8135 전처리액 제작 용도',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'산류'},
+{id:13,name:'Magnesium chloride hexahydrate (염화마그네슘 육수화물) 98% 500g',handler:'고분자 파트',purpose:'MS625-04 미세다공률 시험',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'염류'},
+{id:14,name:'Clay Acid (점토산) 500g',handler:'고분자 파트',purpose:'MS210-05 습식 오염제거성 오염원',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'산류'},
+{id:15,name:'Mono Ethylene glycol (모노에틸렌글리콜) 5L',handler:'-',purpose:'-',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'글리콜류'},
+{id:16,name:'소낙스 워셔액 2L',handler:'의장_이명호',purpose:'르노 내약품성 시험용액',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'세정제류'},
+{id:17,name:'Capture Spot & Stain Remover(캡처 얼룩 제거제) 946mL',handler:'의장_최원혁',purpose:'RIVIAN RTS. 1661',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'세정제류'},
+{id:18,name:'Fantastik (Grease Remover)(그리스 탈지제) 946mL',handler:'의장_최원혁',purpose:'RIVIAN RTS. 1661',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'세정제류'},
+{id:19,name:'왁스리무버 500mL',handler:'의장_이보윤',purpose:'MS341-12',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'세정제류'},
+{id:20,name:'가죽크리너 500mL',handler:'섬유 파트',purpose:'가죽 내썬크림성 시험용',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'세정제류'},
+{id:21,name:'썬크림 40% 113g',handler:'-',purpose:'-',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'선크림류'},
+{id:22,name:'NIVEA 썬크림 47% 125mL',handler:'섬유 파트',purpose:'가죽 내썬크림성 시험용',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'선크림류'},
+{id:23,name:'BANANA BOAT 썬크림 50% 236mL',handler:'고분자 파트',purpose:'MS655-08 내썬크림성 시험용',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'선크림류'},
+{id:24,name:'NIVEA 썬크림 50% 200mL',handler:'고분자 파트',purpose:'MS655-08 내썬크림성 시험용',qty:'2 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'선크림류'},
+{id:25,name:'WD-40 (방청윤활제 WD-40) 283g',handler:'고분자 파트',purpose:'부품 윤활용',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:26,name:'차량용 언더코팅제 550mL',handler:'의장_이명호',purpose:'닛산 NES M0133 내약품성 시험용',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:27,name:'Isoamyl acetate (아이소아밀 아세테이트, 바나나 오일) 99% 1L',handler:'고분자 파트',purpose:'MS655-08 내방향제 제조용 약품',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:28,name:'Isopropyl alcohol (이소프로필 알코올, IPA) 1L',handler:'고분자 파트',purpose:'내스크래치성 유기세척제 제작용',qty:'2 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:29,name:'Linalool (리날로올) 97% 500mL',handler:'고분자 파트',purpose:'MS655-08 내방향제 제조용 약품',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:30,name:'Petroleum ether (석유에테르) 1L',handler:'고분자 파트',purpose:'내스크래치성 유기세척제 제작용',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:31,name:'Limonene (리모넨) 500mL',handler:'고분자 파트',purpose:'MS655-08 내방향제 제조용 약품',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:32,name:'Linalyl acetate (리날릴 아세테이트) 500mL',handler:'고분자 파트',purpose:'MS655-08 내방향제 제조용 약품',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:33,name:'Mobil grease(모빌 그리스) 390g',handler:'의장_이보윤',purpose:'Q/JLY J7110889C',qty:'2 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:34,name:'유한 CLOROX 75매',handler:'의장_최원혁',purpose:'RIVIAN RTS. 1750',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'세정제류'},
+{id:35,name:'PUREll 손세정제 236mL',handler:'의장_최원혁',purpose:'RIVIAN RTS. 1750',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'세정제류'},
+{id:36,name:'Crystal Wax 450g',handler:'의장_이명호',purpose:'Q/JLY J7110889C',qty:'1 EA',purchased:'2024-11-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:37,name:'3M 3000방 컴파운드 1L',handler:'의장_이명호',purpose:'Q/JLY J7110889C',qty:'1 EA',purchased:'2024-11-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:38,name:'스티커 타르 제거제 250mL',handler:'-',purpose:'-',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'세정제류'},
+{id:39,name:'ZIC Royal Grease 2 500g',handler:'-',purpose:'-',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:40,name:'파라핀 램프 오일 500mL',handler:'의장_이명호',purpose:'닛산 NES M0133 내약품성 시험용',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'오일/부동액'},
+{id:41,name:'데바리아 전용 구리스 100g',handler:'-',purpose:'-',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:42,name:'닛산 부동액 3.78L',handler:'의장_이명호',purpose:'닛산 시험용',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'오일/부동액'},
+{id:43,name:'현대모비스 부동액 4L',handler:'고분자 파트',purpose:'디팜스테크 부동액 시험용',qty:'3 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'오일/부동액'},
+{id:44,name:'스노우워시 4L',handler:'의장_이보윤',purpose:'Q/JLY J7110889C',qty:'1 EA',purchased:'2024-11-01',opened:'-',disposed:'-',msds:'',cat:'세정제류'},
+{id:45,name:'GM 부동액 2L',handler:'의장_최원혁',purpose:'GM 시험용',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'오일/부동액'},
+{id:46,name:'불스원 고광택 왁스 550mL',handler:'고분자 파트',purpose:'MS652-15 내보호왁스성 보호왁스',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:47,name:'GM 자동미션오일 1L',handler:'의장_최원혁',purpose:'GM 시험용',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'오일/부동액'},
+{id:48,name:'소낙스 글로스 세차샴푸 1L',handler:'의장_이보윤',purpose:'Q/JLY J7110889C',qty:'2 EA',purchased:'2024-11-01',opened:'-',disposed:'-',msds:'',cat:'세정제류'},
+{id:49,name:'르노 에탄올 워셔액 1.8L',handler:'의장_이보윤',purpose:'Q/JLY J7110889C',qty:'4 EA',purchased:'2024-11-01',opened:'-',disposed:'-',msds:'',cat:'세정제류'},
+{id:50,name:'현대모비스 자동트랜스미션 오일 1L 75W',handler:'-',purpose:'-',qty:'4 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'오일/부동액'},
+{id:51,name:'현대모비스 파워스티어링 오일 1L 80W',handler:'-',purpose:'-',qty:'3 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'오일/부동액'},
+{id:52,name:'르노 파워 스티어링 오일 1L 80W',handler:'의장_이보윤',purpose:'Q/JLY J7110889C',qty:'1 EA',purchased:'2024-11-01',opened:'-',disposed:'-',msds:'',cat:'오일/부동액'},
+{id:53,name:'BASF brake fluid(바스프 브레이크액) 1L',handler:'의장_이보윤',purpose:'Q/JLY J7110889C',qty:'2 EA',purchased:'2024-11-01',opened:'-',disposed:'-',msds:'',cat:'오일/부동액'},
+{id:54,name:'스피드드라이 카워시 1L',handler:'의장_이명호',purpose:'Q/JLY J7110889C',qty:'1 EA',purchased:'2024-11-01',opened:'-',disposed:'-',msds:'',cat:'세정제류'},
+{id:55,name:'GLYSANTIN 글리산틴 부동액 1L',handler:'의장_이보윤',purpose:'Q/JLY J7110889C',qty:'1 EA',purchased:'2024-11-01',opened:'-',disposed:'-',msds:'',cat:'오일/부동액'},
+{id:56,name:'Acdelco 엔진오일 1L 0W20',handler:'의장_이명호',purpose:'Q/JLY J7110889C',qty:'1 EA',purchased:'2024-11-01',opened:'-',disposed:'-',msds:'',cat:'오일/부동액'},
+{id:57,name:'야마하 모터 오일 0.8L',handler:'의장_이명호',purpose:'도요타 시험용',qty:'1 EA',purchased:'2024-11-01',opened:'-',disposed:'-',msds:'',cat:'오일/부동액'},
+{id:58,name:'닛산 모터 오일 1L',handler:'의장_이명호',purpose:'닛산 시험용',qty:'1 EA',purchased:'2024-11-01',opened:'-',disposed:'-',msds:'',cat:'오일/부동액'},
+{id:59,name:'DAWN Ultra, 1.12 L',handler:'의장_최원혁',purpose:'RIVIAN RTS. 1661',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'세정제류'},
+{id:60,name:'Repel Bug spray, Deet 40%',handler:'의장_최원혁',purpose:'RIVIAN RTS. 1750',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:61,name:'가솔린, 인산, 30% 염화칼슘, 60% 에탄올',handler:'-',purpose:'인공땀액 제작 추정',qty:'-',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:62,name:'Diiodomethane 100g',handler:'-',purpose:'-',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:63,name:'윈덱스 유리세정제',handler:'-',purpose:'-',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'세정제류'},
+{id:64,name:'원스텝 왁스 & 드라이',handler:'의장_이명호',purpose:'Q/JLY J7110889C',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:65,name:'NIVEA SUN INTENSE BRONZE',handler:'의장_이명호',purpose:'닛산 NES M0133 내약품성 시험용',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'선크림류'},
+{id:66,name:'르노 브레이크액',handler:'의장_이명호',purpose:'르노 시험용',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'오일/부동액'},
+{id:67,name:'크리스탈 왁스',handler:'의장_이명호',purpose:'Q/JLY J7110889C',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'기타'},
+{id:68,name:'STP 엔진스모크트리트먼트',handler:'의장_이명호',purpose:'도요타 PPS1007 시험용',qty:'1 EA',purchased:'2025-09-01',opened:'-',disposed:'-',msds:'',cat:'오일/부동액'},
+];
+
+const ciEquip=[
+{id:1,name:'Ci3000 르노내광',lamp:'4.5kW',parts:[
+  {n:'Xenon lamp',need:1,have:0,price:3500000,code:'C110034108',serial:'20650000'},
+  {n:'Outer Filter SODALIME',need:2,have:0,price:740000,code:'C110034086',serial:'20279700'},
+  {n:'Inner Filter TYPE S(BS)',need:5,have:5,price:700000,code:'C110034112',serial:'20277300'},
+  {n:'Demineralized Filter',need:3,have:3,price:960000,code:'C110013467',serial:'-'},
+]},
+{id:2,name:'Ci4000 중앙',lamp:'6.5kW',parts:[
+  {n:'Xenon lamp',need:3,have:3,price:0,code:'C110034084',serial:'20650000'},
+  {n:'Outer Filter SODALIME',need:2,have:4,price:0,code:'C110034086',serial:'20279700'},
+  {n:'Outer Filter BOROSILICATE',need:2,have:0,price:740000,code:'C160019847',serial:'20279700'},
+  {n:'Inner Filter TYPE S(BS)',need:10,have:12,price:0,code:'C110034089',serial:'20234100'},
+  {n:'Inner Filter QUARTZ',need:0,have:3,price:0,code:'C110017516',serial:'20650600'},
+  {n:'Demineralized Filter',need:2,have:0,price:0,code:'C110013467',serial:'-'},
+]},
+{id:3,name:'Ci4000 창가',lamp:'6.5kW',parts:[
+  {n:'Xenon lamp',need:0,have:0,price:0,code:'C110034084',serial:'20650000'},
+  {n:'Outer Filter CIRA(SODALIME)',need:0,have:0,price:0,code:'C110017515',serial:'20315000'},
+  {n:'Inner Filter BOROSILICATE',need:0,have:0,price:0,code:'C110034089',serial:'20234100'},
+  {n:'Demineralized Filter',need:0,have:0,price:0,code:'C110013467',serial:'-'},
+]},
+{id:4,name:'Ci4400 현대내후',lamp:'6.5kW',parts:[
+  {n:'Xenon lamp',need:1,have:1,price:0,code:'C110034084',serial:'20650000'},
+  {n:'Outer Filter QUARTZ',need:1,have:2,price:0,code:'C050056910',serial:'20279500'},
+  {n:'Inner Filter RIGHT LIGHT',need:1,have:2,price:0,code:'C050056909',serial:'20401500'},
+  {n:'Inner Filter BOROSILICATE',need:0,have:0,price:0,code:'C160019847',serial:'20279600'},
+  {n:'Demineralized Filter',need:1,have:0,price:0,code:'C110013467',serial:'-'},
+]},
+{id:5,name:'Ci5000 현대내광1',lamp:'12kW',parts:[
+  {n:'Xenon lamp',need:3,have:2,price:8140000,code:'C110034085',serial:'20305300'},
+  {n:'Outer Filter SODALIME',need:3,have:7,price:0,code:'C110034087',serial:'20313000'},
+  {n:'Outer Filter BOROSILICATE',need:1,have:0,price:480000,code:'C160019258',serial:'20312800'},
+  {n:'Outer Filter QUARTZ',need:1,have:4,price:0,code:'C110017592',serial:'20280500'},
+  {n:'Inner Filter TYPE S(BS)',need:12,have:15,price:0,code:'C110034090',serial:'20313200'},
+  {n:'Inner Filter RIGHT LIGHT',need:0,have:1,price:0,code:'C110017593',serial:'20313300'},
+  {n:'Demineralized Filter',need:2,have:0,price:0,code:'C110013467',serial:'-'},
+]},
+{id:6,name:'Ci5000 현대내광2',lamp:'12kW',parts:[
+  {n:'Xenon lamp',need:0,have:0,price:0,code:'C110034085',serial:'20305300'},
+  {n:'Outer Filter SODALIME',need:0,have:0,price:0,code:'C110034087',serial:'20313000'},
+  {n:'Outer Filter BOROSILICATE',need:0,have:0,price:0,code:'C160019258',serial:'20312800'},
+  {n:'Inner Filter TYPE S(BS)',need:0,have:0,price:0,code:'C110034090',serial:'20313200'},
+  {n:'Demineralized Filter',need:0,have:0,price:0,code:'C110013467',serial:'-'},
+]},
+];
+
+const bwItems=[
+{id:1,n:'리빙박스',cat:'보관용품',qty:0,unit:'EA'},
+{id:2,n:'방독면',cat:'안전장비',qty:2,unit:'EA'},
+{id:3,n:'소화기',cat:'소화장비',qty:3,unit:'EA'},
+{id:4,n:'연소성시험기',cat:'시험장비',qty:1,unit:'EA'},
+{id:5,n:'중량력 시로바구니',cat:'소모품',qty:0,unit:'EA'},
+{id:6,n:'지그냉각용 통',cat:'소모품',qty:2,unit:'EA'},
+{id:7,n:'청소기, 청소봉',cat:'청소용품',qty:1,unit:'EA'},
+{id:8,n:'행주',cat:'청소용품',qty:5,unit:'EA'},
+{id:9,n:'호일',cat:'소모품',qty:2,unit:'EA'},
+];
+const etcItems=[
+{id:1,n:'소화기(공용)',cat:'안전장비',qty:2,unit:'EA'},
+{id:2,n:'A4 복사지',cat:'사무용품',qty:5,unit:'Box'},
+{id:3,n:'실험용 장갑',cat:'안전장비',qty:3,unit:'Box'},
+];
+const logs=[
+{item:'Sulfuric acid(황산)',action:'use',qty:'0.5 EA',handler:'의장_이정현',time:'4/8 09:12',isoDate:'2026-04-08',memo:'연료전지 분극시험 #FCC-2026-041'},
+{item:'Inner Filter TYPE S — Ci3000',action:'add',qty:'5 EA',handler:'의장_최재용',time:'4/7 15:30',isoDate:'2026-04-07',memo:'08-05 입고'},
+{item:'Sodium chloride(염화나트륨)',action:'use',qty:'1 EA',handler:'고분자 파트',time:'4/7 11:00',isoDate:'2026-04-07',memo:'인공땀액 제작'},
+{item:'Demineralized Filter',action:'add',qty:'5 EA',handler:'의장_이경옥',time:'4/5 14:00',isoDate:'2026-04-05',memo:'10.17 입고'},
+{item:'Inner Filter RIGHT LIGHT — Ci4400',action:'use',qty:'1 EA',handler:'의장_최용덕',time:'4/4 10:00',isoDate:'2026-04-04',memo:'에이비넥소 임차'},
+];
+
+
+/* ── 소모품 카테고리 동적 관리 ── */
+const BUILTIN_CONS_CATS = [
+  { id: 'ci',  label: 'CI 장비',   type: 'ci',    canDelete: false },
+  { id: 'bw',  label: '방화도',    type: 'generic', canDelete: false },
+  { id: 'etc', label: '기타 소모품', type: 'generic', canDelete: false },
+];
+// 사용자 추가 카테고리
+let customConsCats = []; // { id, label, type:'generic', canDelete:true }
+function allConsCats() { return [...BUILTIN_CONS_CATS, ...customConsCats]; }
+function getConsCat(id) { return allConsCats().find(c => c.id === id); }
+
+/* 카테고리별 아이템 저장소 */
+let consCatItems = {}; // id → [{id, n, cat, qty, unit}, ...]
+// 초기 데이터 매핑
+function initConsCatItems() {
+  consCatItems['ci']  = []; // CI는 ciEquip 구조로 별도 관리
+  consCatItems['bw']  = [...bwItems];
+  consCatItems['etc'] = [...etcItems];
+}
+
+let curL1='chem', curL2='ci', chemPageSize=10, chemCatFilter='all', ciOpenMap={};
+let curChemId=null,curCIEquipId=null,curCIPartIdx=null,curBWId=null,curEtcId=null;
+/* 카테고리 커스텀 목록 (런타임에 추가 가능) */
+let customChemCats=[];
+let customBwCats=[];
+let customEtcCats=[];
+
+/* ── 날짜 / 상태 유틸 ── */
+function today(){return new Date().toISOString().slice(0,10);}
+function addOneYear(d){if(!d||d==='-')return'-';const dt=new Date(d);dt.setFullYear(dt.getFullYear()+1);return dt.toISOString().slice(0,10);}
+function daysUntil(d){if(!d||d==='-')return null;const diff=new Date(d)-new Date(today());return Math.ceil(diff/86400000);}
+
+/* 약품 상태: 폐기 예정일 기준 */
+function chemStatus(c){
+  const days=daysUntil(c.disposed);
+  if(days===null)return'gray'; // 폐기일 미설정
+  if(days<=0)return'warn';     // 만료
+  if(days<=90)return'low';     // 90일 이내
+  return'ok';
+}
+function getStatus(qty){const n=parseInt(qty)||0;if(n===0)return'warn';if(n===1)return'low';return'ok';}
+function statusBadge(s){
+  if(s==='ok')return'<span class="badge badge-green">정상</span>';
+  if(s==='low')return'<span class="badge badge-amber">주의</span>';
+  if(s==='gray')return'<span class="badge badge-gray">미설정</span>';
+  return'<span class="badge badge-red">만료</span>';
+}
+function dotColor(s){return s==='ok'?'var(--green)':s==='low'?'var(--amber)':s==='gray'?'var(--text3)':'var(--red)';}
+function partSt(p){if(p.need===0)return'ok';if(p.have===0)return'warn';if(p.have<p.need)return'low';return'ok';}
+function equipSt(e){const ss=e.parts.map(partSt);if(ss.includes('warn'))return'warn';if(ss.includes('low'))return'low';return'ok';}
+function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+/* ── 카테고리 옵션 헬퍼 ── */
+function chemCatList(){return[...new Set([...ALL_CATS.filter(x=>x!=='all'),...customChemCats])];}
+function bwCatList(){return[...new Set(['소모품','안전장비','소화장비','청소용품','시험장비','보관용품',...customBwCats])];}
+function etcCatList(){return[...new Set(['사무용품','안전장비','청소용품','기타',...customEtcCats])];}
+function catOpts(list,sel){return list.map(x=>`<option${x===sel?' selected':''}>${x}</option>`).join('');}
+
+/* ── 카테고리 추가 UI ── */
+function addCatRow(inputId,addFn){
+  return`<div style="display:flex;gap:6px;margin-top:6px;"><input class="form-control" id="${inputId}" placeholder="새 카테고리명" style="font-size:12px;padding:7px 10px;"/><button onclick="${addFn}('${inputId}')" style="padding:7px 14px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;font-family:var(--font);">추가</button></div>`;
+}
+function addChemCat(inputId){
+  const v=document.getElementById(inputId).value.trim();
+  if(!v)return;
+  if(!customChemCats.includes(v)&&!ALL_CATS.includes(v))customChemCats.push(v);
+  showToast(`카테고리 '${v}' 추가됨`,'success');
+  document.getElementById(inputId).value='';
+  // refresh selects in current modal
+  ['f-cat','e-cat'].forEach(id=>{const el=document.getElementById(id);if(el){const cur=el.value;el.innerHTML=catOpts(chemCatList(),cur);}});
+}
+function addBwCat(inputId){
+  const v=document.getElementById(inputId).value.trim();
+  if(!v)return;
+  if(!customBwCats.includes(v))customBwCats.push(v);
+  showToast(`카테고리 '${v}' 추가됨`,'success');
+  document.getElementById(inputId).value='';
+  ['bw-cat','be-cat'].forEach(id=>{const el=document.getElementById(id);if(el){const cur=el.value;el.innerHTML=catOpts(bwCatList(),cur);}});
+}
+function addEtcCat(inputId){
+  const v=document.getElementById(inputId).value.trim();
+  if(!v)return;
+  if(!customEtcCats.includes(v))customEtcCats.push(v);
+  showToast(`카테고리 '${v}' 추가됨`,'success');
+  document.getElementById(inputId).value='';
+  ['et-cat','ee-cat'].forEach(id=>{const el=document.getElementById(id);if(el){const cur=el.value;el.innerHTML=catOpts(etcCatList(),cur);}});
+}
+
+/* ── 헤더 배지 ── */
+function updateBadge(){
+  const el=document.getElementById('hdr-badge-text');
+  if(curL1==='chem'){
+    const warn=chemicals.filter(c=>{const s=chemStatus(c);return s==='warn'||s==='low';}).length;
+    el.textContent='약품 '+chemicals.length+'종'+(warn?' · ⚠'+warn:'');
+  } else if(curL1==='consumable'){
+    if(curL2==='ci'){const w=ciEquip.reduce((a,e)=>a+e.parts.filter(p=>partSt(p)!=='ok'&&p.need>0).length,0);el.textContent='CI 장비 6대'+(w?' · 부족 '+w:'');}
+    else {
+      const _items=consCatItems[curL2]||[];
+      const _cat=getConsCat(curL2);
+      el.textContent=(_cat?_cat.label:'소모품')+' '+_items.length+'종';
+    }
+  } else {el.textContent='기록 '+logs.length+'건';}
+}
+
+/* ── L2 NAV 동적 렌더 ── */
+function renderL2Nav(){
+  const nav=document.getElementById('nav-l2');
+  if(!nav)return;
+  const cats=allConsCats();
+  nav.innerHTML=cats.map(cat=>
+    `<button class="nav-l2-btn ${curL2===cat.id?'active':''}" onclick="switchL2('${cat.id}',this)">${cat.label}</button>`
+  ).join('')
+  +`<button onclick="openAddConsCatModal()" style="flex-shrink:0;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;font-family:var(--font);border:1px dashed var(--border2);background:none;color:var(--text3);cursor:pointer;white-space:nowrap;">+ 추가</button>`;
+}
+
+/* ── 소모품 동적 섹션 렌더 ── */
+function renderConsCatSection(){
+  const cat=getConsCat(curL2);
+  const el=document.getElementById('consumable-section-content');
+  if(!el)return;
+  if(!cat){el.innerHTML='';return;}
+  if(cat.type==='ci') renderCISection(el);
+  else renderGenericSection(el,cat);
+}
+
+function renderCISection(container){
+  const low=ciEquip.reduce((a,e)=>a+e.parts.filter(p=>partSt(p)==='low').length,0);
+  const warn=ciEquip.reduce((a,e)=>a+e.parts.filter(p=>partSt(p)==='warn'&&p.need>0).length,0);
+  container.innerHTML=`
+    <div class="pad">
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-label">장비</div><div class="stat-val blue">${ciEquip.length}</div></div>
+        <div class="stat-card"><div class="stat-label">부족</div><div class="stat-val amber" id="ci-low">${low}</div></div>
+        <div class="stat-card"><div class="stat-label">재고없음</div><div class="stat-val red" id="ci-warn">${warn}</div></div>
+      </div>
+      <div style="font-size:11px;color:var(--text3);background:var(--bg3);border-radius:var(--radius);padding:8px 12px;border:1px solid var(--border);">파트를 클릭하면 즉시 입출고 등록이 가능합니다</div>
+    </div>
+    <div class="card" style="margin:0 14px 14px;"><div id="ci-list"></div></div>
+  `;
+  renderCIList();
+}
+
+function renderGenericSection(container,cat){
+  const items=consCatItems[cat.id]||[];
+  const ok=items.filter(i=>getStatus(i.qty)==='ok').length;
+  const ab=items.length-ok;
+  const catId=cat.id;
+  container.innerHTML=`
+    <div class="pad">
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px;">
+        <div class="stats-row" style="flex:1;margin-bottom:0;">
+          <div class="stat-card"><div class="stat-label">전체</div><div class="stat-val blue">${items.length}</div></div>
+          <div class="stat-card"><div class="stat-label">정상</div><div class="stat-val green">${ok}</div></div>
+          <div class="stat-card"><div class="stat-label">주의/부족</div><div class="stat-val amber">${ab}</div></div>
+        </div>
+        ${cat.canDelete?`<button onclick="deleteConsCat('${catId}')" style="margin-top:2px;padding:5px 10px;background:var(--red-dim);border:1px solid rgba(220,38,38,.2);border-radius:var(--radius);font-size:11px;font-weight:700;color:var(--red);cursor:pointer;font-family:var(--font);flex-shrink:0;">카테고리 삭제</button>`:''}
+      </div>
+    </div>
+    <div class="card" style="margin:0 14px 14px;">
+      <div id="generic-list-${catId}">${
+        items.length===0
+        ?'<div style="padding:20px;text-align:center;color:var(--text3);font-size:12px;">등록된 소모품이 없습니다</div>'
+        :items.map(i=>{const st=getStatus(i.qty);return`<div class="list-item" onclick="openGenericModal('${catId}',${i.id},'detail')"><div class="item-dot" style="background:${dotColor(st)};"></div><div class="item-info"><div class="item-name">${i.n}</div><div class="item-meta">${i.cat}</div></div>${statusBadge(st)}<span class="item-qty">${i.qty} ${i.unit}</span></div>`;}).join('')
+      }</div>
+    </div>
+    <button class="add-fab" onclick="openGenericModal('${catId}',null,'new')">+ 소모품 등록</button>
+  `;
+}
+
+/* ── 카테고리 추가/삭제 ── */
+function openAddConsCatModal(){
+  openModal('소모품 카테고리 관리','',`
+    <div class="form-group">
+      <label class="form-label">새 카테고리 이름</label>
+      <div style="display:flex;gap:8px;">
+        <input class="form-control" id="new-cons-cat-name" placeholder="예: 방진 장비, 전기 소모품" style="flex:1;"/>
+        <button onclick="submitAddConsCat()" style="padding:9px 16px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);flex-shrink:0;">추가</button>
+      </div>
+    </div>
+    <div class="form-label" style="margin-bottom:8px;">현재 카테고리</div>
+    <div style="display:flex;flex-direction:column;gap:6px;" id="cons-cat-manage-list">
+      ${allConsCats().map(c=>`
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--bg3);border-radius:var(--radius);border:1px solid var(--border);">
+          <span style="font-size:13px;font-weight:500;color:var(--text);">${c.label}</span>
+          ${c.canDelete
+            ?`<button onclick="deleteConsCat('${c.id}')" style="padding:3px 10px;background:var(--red-dim);border:1px solid rgba(220,38,38,.2);border-radius:20px;font-size:11px;font-weight:700;color:var(--red);cursor:pointer;font-family:var(--font);">삭제</button>`
+            :`<span style="font-size:10px;color:var(--text3);padding:3px 8px;background:var(--bg4);border-radius:20px;">기본</span>`
+          }
+        </div>`).join('')}
+    </div>
+  `);
+}
+
+function submitAddConsCat(){
+  const name=(document.getElementById('new-cons-cat-name')||{}).value?.trim();
+  if(!name){showToast('카테고리 이름을 입력하세요','error');return;}
+  const id='cat_'+Date.now();
+  customConsCats.push({id,label:name,type:'generic',canDelete:true});
+  consCatItems[id]=[];
+  fbSaveConsCat({id,label:name,type:'generic',canDelete:true});
+  closeModal();
+  curL2=id;
+  if(curL1==='consumable'){renderL2Nav();renderConsCatSection();}
+  showToast(`'${name}' 카테고리 추가됨`,'success');
+  updateBadge();
+}
+
+function deleteConsCat(catId){
+  const cat=getConsCat(catId);
+  if(!cat||!cat.canDelete){showToast('기본 카테고리는 삭제할 수 없습니다','error');return;}
+  const items=consCatItems[catId]||[];
+  if(items.length>0&&!confirm(`'${cat.label}' 카테고리에 소모품 ${items.length}개가 있습니다. 정말 삭제하시겠습니까?`))return;
+  fbDeleteConsCat(catId);
+  customConsCats=customConsCats.filter(c=>c.id!==catId);
+  delete consCatItems[catId];
+  if(curL2===catId) curL2='ci';
+  closeModal();
+  renderL2Nav();
+  renderConsCatSection();
+  updateBadge();
+  showToast(`'${cat.label}' 카테고리 삭제됨`,'success');
+}
+
+
+/* ── NAV ── */
+/* 탭 전환 — 동적 섹션 구조에 맞게 재작성 */
+const L1_STATIC_SECTIONS = { chem:'sec-chem', log:'sec-log' };
+
+/* ── 범용 소모품 모달 (방화도 / 기타 / 커스텀 카테고리 통합) ── */
+let curGenericCatId=null, curGenericItemId=null, genericIODir='add';
+
+function openGenericModal(catId, itemId, mode){
+  curGenericCatId=catId;
+  curGenericItemId=itemId;
+  const cat=getConsCat(catId);
+  const catLabel=cat?cat.label:'소모품';
+  const items=consCatItems[catId]||[];
+  const item=items.find(x=>x.id===itemId)||null;
+
+  if(mode==='new'){
+    openModal(catLabel+' 소모품 등록','',`
+      <div class="form-group"><label class="form-label">소모품명</label><input class="form-control" id="gn-name" placeholder="소모품명 입력"/></div>
+      <div class="form-row" style="margin-bottom:12px;">
+        <div><label class="form-label">세분류</label><input class="form-control" id="gn-cat" placeholder="예: 안전장비"/></div>
+        <div><label class="form-label">단위</label>
+          <select class="form-control" id="gn-unit">
+            <option>EA</option><option>개</option><option>Box</option><option>Roll</option><option>L</option><option>kg</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">초기 수량</label><input class="form-control" type="number" id="gn-qty" value="1" min="0"/></div>
+      <button class="submit-btn" onclick="submitNewGenericItem()">등록</button>
+    `);
+    return;
+  }
+  if(!item)return;
+  genericIODir='add';
+  openModal(item.n, catLabel, `
+    <div class="action-tabs">
+      <button class="action-tab active" id="tab-info" onclick="genericTab('info')">정보</button>
+      <button class="action-tab" id="tab-edit" onclick="genericTab('edit')">수정</button>
+      <button class="action-tab" id="tab-io" onclick="genericTab('io')">입출고</button>
+    </div>
+    <div id="generic-modal-content"></div>
+  `);
+  genericTab('info');
+}
+
+function genericTab(tab){
+  document.querySelectorAll('.action-tab').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('tab-'+tab);if(btn)btn.classList.add('active');
+  const items=consCatItems[curGenericCatId]||[];
+  const item=items.find(x=>x.id===curGenericItemId);if(!item)return;
+  const st=getStatus(item.qty),col=dotColor(st);
+  const el=document.getElementById('generic-modal-content');
+  if(tab==='info'){
+    el.innerHTML=`
+      <div class="info-block">
+        <div class="info-block-row"><span class="info-block-label">현재 수량</span><span class="info-block-val" style="color:${col};">${item.qty} ${item.unit}</span></div>
+        <div class="info-block-row"><span class="info-block-label">세분류</span><span class="info-block-val">${item.cat}</span></div>
+        <div class="info-block-row"><span class="info-block-label">상태</span><span class="info-block-val">${st==='ok'?'정상':st==='low'?'부족':'주의'}</span></div>
+      </div>`;
+  } else if(tab==='edit'){
+    el.innerHTML=`
+      <div class="form-group"><label class="form-label">소모품명</label><input class="form-control" id="ge-name" value="${escH(item.n)}"/></div>
+      <div class="form-row" style="margin-bottom:12px;">
+        <div><label class="form-label">세분류</label><input class="form-control" id="ge-cat" value="${escH(item.cat)}"/></div>
+        <div><label class="form-label">단위</label>
+          <select class="form-control" id="ge-unit">
+            ${['EA','개','Box','Roll','L','kg'].map(u=>`<option${item.unit===u?' selected':''}>${u}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">수량</label><input class="form-control" type="number" id="ge-qty" value="${item.qty}" min="0"/></div>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <button class="submit-btn" onclick="submitEditGenericItem()" style="flex:1;margin-top:0;">변경 저장</button>
+        <button class="submit-btn danger" onclick="deleteGenericItem()" style="flex:0 0 70px;margin-top:0;font-size:11px;">삭제</button>
+      </div>`;
+  } else {
+    el.innerHTML=`
+      <div class="info-block">
+        <div class="info-block-row"><span class="info-block-label">현재 수량</span><span class="info-block-val" style="color:${col};">${item.qty} ${item.unit}</span></div>
+      </div>
+      <div class="seg-wrap">
+        <button id="gseg-in" class="seg-btn in active" onclick="setGenericIO('add')">입고 (IN)</button>
+        <button id="gseg-out" class="seg-btn out" onclick="setGenericIO('use')">출고 (OUT)</button>
+      </div>
+      <div class="form-group"><label class="form-label">수량</label>
+        <div class="qty-ctrl">
+          <button class="qty-btn" onclick="adjGQ(-1)">−</button>
+          <span class="qty-display" id="g-qdisp">1</span>
+          <button class="qty-btn" onclick="adjGQ(1)">+</button>
+          <input type="hidden" id="g-qval" value="1"/>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">담당자</label><select class="form-control" id="g-handler">${memberOpts('')}</select></div>
+      <div class="form-group"><label class="form-label">메모</label><textarea class="form-control" id="g-memo" rows="2" style="resize:none;" placeholder="비고..."></textarea></div>
+      <button class="submit-btn" id="gio-btn" onclick="submitGenericIO()">입고 저장</button>
+    `;
+  }
+}
+function setGenericIO(dir){
+  genericIODir=dir;
+  document.getElementById('gseg-in')?.classList.toggle('active',dir==='add');
+  document.getElementById('gseg-out')?.classList.toggle('active',dir==='use');
+  const btn=document.getElementById('gio-btn');if(btn)btn.textContent=dir==='add'?'입고 저장':'출고 저장';
+}
+function adjGQ(d){const el=document.getElementById('g-qval');if(!el)return;const v=Math.max(1,(parseInt(el.value)||1)+d);el.value=v;const disp=document.getElementById('g-qdisp');if(disp)disp.textContent=v;}
+function submitGenericIO(){
+  const items=consCatItems[curGenericCatId];if(!items)return;
+  const item=items.find(x=>x.id===curGenericItemId);if(!item)return;
+  const qty=parseInt(document.getElementById('g-qval').value)||1;
+  const handler=document.getElementById('g-handler').value||'미지정';
+  const memo=document.getElementById('g-memo').value;
+  if(genericIODir==='add')item.qty+=qty;else item.qty=Math.max(0,item.qty-qty);
+  addLog(item.n,genericIODir,qty+' '+item.unit,handler,memo);
+  fbSaveConsItem(curGenericCatId,item);
+  closeModal();renderAll();
+  showToast(`${item.n} ${genericIODir==='add'?'입고':'출고'} ${qty}${item.unit}`,genericIODir==='use'?'error':'success');
+}
+function submitEditGenericItem(){
+  const items=consCatItems[curGenericCatId];if(!items)return;
+  const item=items.find(x=>x.id===curGenericItemId);if(!item)return;
+  item.n=document.getElementById('ge-name').value.trim()||item.n;
+  item.cat=document.getElementById('ge-cat').value||item.cat;
+  item.unit=document.getElementById('ge-unit').value;
+  item.qty=parseInt(document.getElementById('ge-qty').value)||0;
+  fbSaveConsItem(curGenericCatId,item);
+  closeModal();renderAll();showToast('소모품 정보가 수정되었습니다','success');
+}
+function deleteGenericItem(){
+  const items=consCatItems[curGenericCatId];if(!items)return;
+  const item=items.find(x=>x.id===curGenericItemId);if(!item)return;
+  if(!confirm(`'${item.n}'을(를) 삭제하시겠습니까?`))return;
+  fbDeleteConsItem(item);
+  consCatItems[curGenericCatId]=items.filter(x=>x.id!==curGenericItemId);
+  closeModal();renderAll();showToast(`'${item.n}' 삭제됨`,'success');
+}
+function submitNewGenericItem(){
+  const name=(document.getElementById('gn-name')||{}).value?.trim();
+  if(!name){showToast('소모품명을 입력하세요','error');return;}
+  const items=consCatItems[curGenericCatId];if(!items)return;
+  const newId=items.length?Math.max(...items.map(i=>i.id))+1:1;
+  items.push({
+    id:newId,
+    n:name,
+    cat:(document.getElementById('gn-cat')||{}).value||'기타',
+    qty:parseInt((document.getElementById('gn-qty')||{}).value)||0,
+    unit:(document.getElementById('gn-unit')||{}).value||'EA'
+  });
+  closeModal();renderAll();showToast(`'${name}' 등록 완료`,'success');
+}
+
+
+function showSection(id){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  const el=document.getElementById(id);
+  if(el) el.classList.add('active');
+}
+
+function switchL1(tab, btn){
+  curL1=tab;
+  document.querySelectorAll('.nav-l1-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  const l2=document.getElementById('nav-l2');
+  if(tab==='consumable'){
+    l2.style.display='flex';
+    showSection('sec-consumable-dynamic');
+    renderL2Nav();
+    renderConsCatSection();
+  } else {
+    l2.style.display='none';
+    showSection(L1_STATIC_SECTIONS[tab]||('sec-'+tab));
+    if(tab==='chem') renderChemList();
+    else if(tab==='log') renderLogList();
+  }
+  updateBadge();
+}
+
+function switchL2(id, btn){
+  curL2=id;
+  renderL2Nav(); // 버튼 active 상태는 renderL2Nav가 처리
+  showSection('sec-consumable-dynamic');
+  renderConsCatSection();
+  updateBadge();
+}
+function renderAll(){
+  if(curL1==='chem') renderChemList();
+  else if(curL1==='consumable'){ renderConsCatSection(); renderL2Nav(); }
+  else if(curL1==='log') renderLogList();
+  updateBadge();
+}
+
+/* ── 약품 리스트 ── */
+function filteredChems(){
+  const q=(document.getElementById('chem-search')||{}).value||'';
+  return chemicals.filter(c=>(chemCatFilter==='all'||c.cat===chemCatFilter)&&(!q||c.name.toLowerCase().includes(q.toLowerCase())||c.handler.includes(q)));
+}
+function renderChemList(){
+  const total=chemicals.length;
+  const ok=chemicals.filter(c=>chemStatus(c)==='ok').length;
+  const warn=chemicals.filter(c=>{const s=chemStatus(c);return s==='warn'||s==='low';}).length;
+  const ctEl=document.getElementById('c-total');if(ctEl)ctEl.textContent=total;
+  const coEl=document.getElementById('c-ok');if(coEl)coEl.textContent=ok;
+  const cwEl=document.getElementById('c-warn');if(cwEl)cwEl.textContent=warn;
+  const chipsEl1=document.getElementById('chem-chips');if(chipsEl1)chipsEl1.innerHTML=chemCatList().map(c=>`<span class="chip ${chemCatFilter===c?'active':''}" onclick="setCatFilter('${c}')">${c}</span>`).join('');
+  const chipsEl2=document.getElementById('chem-chips');if(chipsEl2)chipsEl2.innerHTML=`<span class="chip ${chemCatFilter==='all'?'active':''}" onclick="setCatFilter('all')">전체</span>`+chemCatList().map(c=>`<span class="chip ${chemCatFilter===c?'active':''}" onclick="setCatFilter('${c}')">${c}</span>`).join('');
+  const list=filteredChems(),shown=list.slice(0,chemPageSize);
+  const chemListEl=document.getElementById('chem-list');if(!chemListEl)return;
+  chemListEl.innerHTML=shown.map(c=>{
+    const st=chemStatus(c);
+    const days=daysUntil(c.disposed);
+    const daysStr=days===null?'':days<=0?' · 폐기 만료':' · 폐기 D-'+days;
+    return`<div class="list-item" onclick="openChemModal(${c.id},'detail')"><div class="item-dot" style="background:${dotColor(st)};"></div><div class="item-info"><div class="item-name">${c.name}</div><div class="item-meta">${c.cat}${c.handler!=='-'?' · '+c.handler:''}${daysStr}</div></div>${statusBadge(st)}<span class="item-qty">${c.qty}</span></div>`;
+  }).join('');
+  const mb=document.getElementById('chem-more');if(!mb)return;
+  if(shown.length<list.length){mb.style.display='block';mb.textContent=`+ 더보기 (${list.length-shown.length}개 더)`;}else mb.style.display='none';
+}
+function setCatFilter(c){chemCatFilter=c;chemPageSize=10;renderChemList();}
+function chemShowMore(){chemPageSize+=10;renderChemList();}
+
+/* ── CI 리스트 ── */
+function renderCIList(){
+  const low=ciEquip.reduce((a,e)=>a+e.parts.filter(p=>partSt(p)==='low').length,0);
+  const warn=ciEquip.reduce((a,e)=>a+e.parts.filter(p=>partSt(p)==='warn'&&p.need>0).length,0);
+  const ciLowEl=document.getElementById('ci-low');if(ciLowEl)ciLowEl.textContent=low;
+  const ciWarnEl=document.getElementById('ci-warn');if(ciWarnEl)ciWarnEl.textContent=warn;
+  const ciListEl=document.getElementById('ci-list');if(!ciListEl)return;
+  ciListEl.innerHTML=ciEquip.map(e=>{
+    const es=equipSt(e),sh=e.parts.filter(p=>partSt(p)!=='ok'&&p.need>0).length;
+    const ph=ciOpenMap[e.id]?`<div class="ci-parts-list">${e.parts.map((p,pi)=>{
+      const ps=partSt(p),pct=p.need>0?Math.min(100,Math.round(p.have/p.need*100)):100;
+      const col=ps==='ok'?'var(--green)':ps==='low'?'var(--amber)':'var(--red)';
+      return`<div class="ci-part-row" onclick="event.stopPropagation();openPartModal(${e.id},${pi})"><div class="ci-part-info"><div class="ci-part-name">${p.n}</div><div class="ci-part-code">${p.code}${p.price>0?' · ₩'+p.price.toLocaleString():''}</div>${p.need>0?`<div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:${col};"></div></div>`:''}</div><div class="ci-part-right"><div class="ci-part-cnt" style="color:${col};">${p.have}<span style="color:var(--text3);font-weight:400;font-size:10px;">/${p.need||'—'}</span></div><div style="font-size:9px;color:var(--text3);">보유/필요</div></div></div>`;
+    }).join('')}
+    <div onclick="event.stopPropagation();openAddPartModal(${e.id})" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:9px 10px;background:var(--bg3);border-radius:var(--radius);border:1px dashed var(--border2);cursor:pointer;transition:all .15s;margin-top:2px;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border2)'">
+      <span style="font-size:13px;color:var(--accent);font-weight:700;">+</span>
+      <span style="font-size:11px;font-weight:600;color:var(--accent);">파트 추가</span>
+    </div>
+    </div>`:'';
+    return`<div class="ci-equip-item" onclick="toggleCI(${e.id})"><div class="ci-equip-header"><div class="ci-equip-dot" style="background:${dotColor(es)};"></div><div class="ci-equip-info"><div class="ci-equip-name">${e.name}</div><div class="ci-equip-meta">램프 ${e.lamp} · ${e.parts.length}종${sh?' · 부족 '+sh+'종':''}</div></div>${statusBadge(es)}<button onclick="event.stopPropagation();openAddPartModal(${e.id})" style="margin-left:6px;padding:3px 9px;background:var(--accent-dim);border:1px solid rgba(37,99,235,.2);border-radius:20px;font-size:10px;font-weight:700;color:var(--accent);cursor:pointer;font-family:var(--font);flex-shrink:0;">+ 파트</button><span style="margin-left:4px;font-size:11px;color:var(--text3);">${ciOpenMap[e.id]?'▲':'▼'}</span></div>${ph}</div>`;
+  }).join('');
+}
+function toggleCI(id){ciOpenMap[id]=!ciOpenMap[id];renderCIList();}
+
+/* ── BW / ETC 리스트 ── */
+function renderBWList(){ /* 통합 렌더러로 대체됨 */ }
+function renderEtcList(){ /* 통합 렌더러로 대체됨 */ }
+
+/* ── 기록 로그 ── */
+/* ── 기록 로그 ── */
+function getLogMonthKey(l){
+  if(l.isoDate) return l.isoDate.slice(0,7); // "2026-04"
+  return null;
+}
+function getLogMonthLabel(key){
+  if(!key) return '날짜 미상';
+  const [y,m]=key.split('-');
+  return y+'년 '+parseInt(m)+'월';
+}
+
+function populateMonthFilter(){
+  const sel=document.getElementById('log-filter-month');
+  if(!sel) return;
+  const cur=sel.value;
+  // collect unique months from logs
+  const months=[...new Set(logs.map(l=>getLogMonthKey(l)).filter(Boolean))].sort().reverse();
+  sel.innerHTML='<option value="all">전체 기간</option>'
+    +months.map(m=>`<option value="${m}"${cur===m?' selected':''}>${getLogMonthLabel(m)}</option>`).join('');
+}
+
+function filteredLogs(){
+  const af=(document.getElementById('log-filter-action')||{}).value||'all';
+  const mf=(document.getElementById('log-filter-month')||{}).value||'all';
+  return logs.filter(l=>
+    (af==='all'||l.action===af) &&
+    (mf==='all'||getLogMonthKey(l)===mf)
+  );
+}
+
+function deleteLog(idx){
+  if(!confirm('이 기록을 삭제하시겠습니까?')) return;
+  logs.splice(idx,1);
+  renderLogList();
+  updateBadge();
+  showToast('기록이 삭제되었습니다','success');
+}
+
+function renderLogList(){
+  populateMonthFilter();
+  const filtered=filteredLogs();
+
+  // count bar
+  const countEl=document.getElementById('log-count-bar');
+  if(countEl){
+    const inCnt=filtered.filter(l=>l.action==='add').length;
+    const outCnt=filtered.filter(l=>l.action==='use').length;
+    countEl.textContent=`총 ${filtered.length}건 · 입고 ${inCnt}건 · 출고 ${outCnt}건`;
+  }
+
+  const logListEl=document.getElementById('log-list');if(!logListEl)return;
+  if(filtered.length===0){
+    logListEl.innerHTML='<div style="padding:24px;text-align:center;color:var(--text3);font-size:12px;">기록이 없습니다</div>';
+    return;
+  }
+
+  // 월별 그룹핑
+  const groups={};
+  filtered.forEach((l,i)=>{
+    const mk=getLogMonthKey(l)||'날짜 미상';
+    if(!groups[mk]) groups[mk]=[];
+    groups[mk].push({l,origIdx:logs.indexOf(l)});
+  });
+
+  const monthKeys=Object.keys(groups).sort().reverse();
+  logListEl.innerHTML=monthKeys.map(mk=>{
+    const label=getLogMonthLabel(mk);
+    const items=groups[mk];
+    return `
+      <div style="padding:8px 14px 4px;font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.8px;background:var(--bg3);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:2;">${label} · ${items.length}건</div>
+      ${items.map(({l,origIdx})=>`
+        <div class="log-item" style="position:relative;">
+          <div class="log-top">
+            <span class="log-name">${l.item}</span>
+            <span class="log-badge ${l.action==='use'?'log-use':'log-add'}">${l.action==='use'?'출고':'입고'} ${l.qty}</span>
+          </div>
+          <div class="log-bot">
+            <span class="log-detail">${l.handler}${l.memo?' · '+l.memo:''}</span>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span class="log-time">${l.time}</span>
+              <button onclick="deleteLog(${origIdx})" style="padding:2px 8px;background:var(--red-dim);border:1px solid rgba(220,38,38,.15);border-radius:20px;font-size:10px;font-weight:700;color:var(--red);cursor:pointer;font-family:var(--font);">삭제</button>
+            </div>
+          </div>
+        </div>`).join('')}
+    `;
+  }).join('');
+}
+
+/* ── 인쇄 ── */
+function printLog(){
+  const filtered=filteredLogs();
+  const af=(document.getElementById('log-filter-action')||{}).value||'all';
+  const mf=(document.getElementById('log-filter-month')||{}).value||'all';
+  const now=new Date();
+  const printDateEl=document.getElementById('print-date');
+  const printMetaEl=document.getElementById('print-meta');
+  const printTableEl=document.getElementById('print-table');
+  if(printDateEl) printDateEl.textContent=now.toLocaleDateString('ko-KR');
+  let meta='출력일: '+now.toLocaleDateString('ko-KR')+' '+now.toLocaleTimeString('ko-KR');
+  if(af!=='all') meta+=' · 구분: '+(af==='add'?'입고':'출고');
+  if(mf!=='all') meta+=' · 기간: '+getLogMonthLabel(mf);
+  meta+=' · 총 '+filtered.length+'건';
+  if(printMetaEl) printMetaEl.textContent=meta;
+  if(printTableEl) printTableEl.innerHTML=`
+    <thead><tr><th>일시</th><th>품목</th><th>구분</th><th>수량</th><th>담당자</th><th>메모</th></tr></thead>
+    <tbody>${filtered.map(l=>`<tr><td>${l.time}</td><td>${l.item}</td><td><span class="print-badge ${l.action==='use'?'out':'in'}">${l.action==='use'?'출고':'입고'}</span></td><td>${l.qty}</td><td>${l.handler}</td><td>${l.memo||''}</td></tr>`).join('')}</tbody>
+  `;
+  window.print();
+}
+
+/* ── 공통 유틸 ── */
+function openModal(title,sub,body){
+  document.getElementById('modal-title').textContent=title;
+  document.getElementById('modal-sub').textContent=sub||'';
+  document.getElementById('modal-body').innerHTML=body;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open');}
+function closeModalOutside(e){if(e.target===document.getElementById('modal-overlay'))closeModal();}
+function memberOpts(sel){return['',...MEMBERS].map(m=>`<option value="${m}"${m===sel?' selected':''}>${m||'-- 담당자 선택 --'}</option>`).join('');}
+function addLog(item,action,qty,handler,memo){
+  const now=new Date();
+  const t=`${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const iso=now.toISOString().slice(0,10);
+  logs.unshift({item,action,qty,handler,time:t,isoDate:iso,memo:memo||''});if(logs.length>500)logs.pop();
+  updateBadge();
+}
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');t.textContent=msg;t.className='toast '+(type||'');t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2600);
+}
+function adjQ(d){const v=Math.max(1,(parseInt(document.getElementById('f-qval').value)||1)+d);document.getElementById('f-qval').value=v;document.getElementById('f-qdisp').textContent=v;}
+function adjPQ(d){const v=Math.max(1,(parseInt(document.getElementById('p-qval').value)||1)+d);document.getElementById('p-qval').value=v;document.getElementById('p-qdisp').textContent=v;}
+function adjBWQ(d){const v=Math.max(1,(parseInt(document.getElementById('bw-qval').value)||1)+d);document.getElementById('bw-qval').value=v;document.getElementById('bw-qdisp').textContent=v;}
+function adjEtcQ(d){const v=Math.max(1,(parseInt(document.getElementById('etc-qval').value)||1)+d);document.getElementById('etc-qval').value=v;document.getElementById('etc-qdisp').textContent=v;}
+
+/* ── 입출고 탭 상태 ── */
+let chemIODir='add'; // 약품 입출고 방향
+let partIODir='add';
+let bwIODir='add';
+let etcIODir='add';
+
+/* ── 약품 모달 ── */
+function openChemModal(id,mode){
+  curChemId=id;const c=chemicals.find(x=>x.id===id)||null;
+  const catOptsNew=catOpts(chemCatList(),'');
+  if(mode==='new'){
+    openModal('신규 약품 등록','',`
+      <div class="form-group"><label class="form-label">약품명</label><input class="form-control" id="f-name" placeholder="예: Sulfuric acid(황산) 98%, 1kg"/></div>
+      <div class="form-row" style="margin-bottom:12px;">
+        <div><label class="form-label">카테고리</label><select class="form-control" id="f-cat">${catOptsNew}</select>
+          ${addCatRow('new-chem-cat','addChemCat')}</div>
+        <div><label class="form-label">취급자</label><select class="form-control" id="f-handler">${memberOpts('')}</select></div>
+      </div>
+      <div class="form-row" style="margin-bottom:12px;">
+        <div><label class="form-label">초기 수량</label><input class="form-control" type="number" id="f-qty" value="1" min="0"/></div>
+        <div><label class="form-label">단위</label><select class="form-control" id="f-unit"><option>EA</option><option>mL</option><option>g</option><option>kg</option><option>L</option></select></div>
+      </div>
+      <div class="form-group"><label class="form-label">사용 목적</label><input class="form-control" id="f-purpose" placeholder="예: MS625-04 미세다공률 시험"/></div>
+      <button class="submit-btn" onclick="submitNewChem()">등록</button>
+    `);return;
+  }
+  if(!c)return;
+  openModal(c.name,c.cat,`<div class="action-tabs"><button class="action-tab active" id="tab-info" onclick="chemTab('info')">정보</button><button class="action-tab" id="tab-edit" onclick="chemTab('edit')">수정</button><button class="action-tab" id="tab-io" onclick="chemTab('io')">입출고</button><button class="action-tab" id="tab-date" onclick="chemTab('date')">날짜</button><button class="action-tab" id="tab-msds" onclick="chemTab('msds')">MSDS</button></div><div id="chem-modal-content"></div>`);
+  chemTab('info');
+}
+function chemTab(tab){
+  document.querySelectorAll('.action-tab').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('tab-'+tab);if(btn)btn.classList.add('active');
+  const c=chemicals.find(x=>x.id===curChemId);if(!c)return;
+  const st=chemStatus(c),col=dotColor(st),el=document.getElementById('chem-modal-content');
+  const unitOpts=['EA','mL','g','kg','L'].map(u=>`<option${c.qty.includes(u)?' selected':''}>${u}</option>`).join('');
+  const days=daysUntil(c.disposed);
+  const disposedCls=days===null?'':days<=0?'expires-danger':days<=90?'expires-warn':'expires-ok';
+  if(tab==='info'){
+    el.innerHTML=`
+      <div class="info-block">
+        <div class="info-block-row"><span class="info-block-label">현재 수량</span><span class="info-block-val">${c.qty}</span></div>
+        <div class="info-block-row"><span class="info-block-label">취급자</span><span class="info-block-val">${c.handler}</span></div>
+        <div class="info-block-row"><span class="info-block-label">상태</span><span class="info-block-val" style="color:${col};">${st==='ok'?'정상':st==='low'?'주의 (90일 이내)':st==='warn'?'만료':'폐기일 미설정'}</span></div>
+        ${days!==null?`<div class="info-block-row"><span class="info-block-label">폐기까지</span><span class="info-block-val" style="color:${col};">${days<=0?'기한 초과':(days+'일 남음')}</span></div>`:''}
+      </div>
+      <div class="form-label" style="margin-bottom:5px;">사용 목적</div>
+      <div style="font-size:12px;color:var(--text);padding:8px 12px;background:var(--bg3);border-radius:var(--radius);margin-bottom:12px;">${c.purpose||'—'}</div>
+      <div class="date-tags">
+        <div class="date-tag">구매 <span>${c.purchased}</span></div>
+        <div class="date-tag">개봉 <span>${c.opened}</span></div>
+        <div class="date-tag ${disposedCls}">폐기 예정 <span>${c.disposed}</span></div>
+      </div>
+      ${c.msdsFullText
+        ? `<div style="margin-top:10px;">
+            <div style="font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;">AI 작성 MSDS 초안</div>
+            <div style="background:var(--bg3);border-radius:var(--radius);padding:10px;font-size:10px;line-height:1.7;color:var(--text);border:1px solid var(--border2);max-height:160px;overflow-y:auto;white-space:pre-wrap;">${c.msdsFullText.slice(0,600)}${c.msdsFullText.length>600?'\n\n... (MSDS 탭에서 전체 내용 확인)':''}</div>
+            <button onclick="chemTab('msds')" style="margin-top:6px;font-size:11px;color:var(--accent);background:none;border:none;cursor:pointer;font-family:var(--font);padding:0;">MSDS 탭에서 수정 →</button>
+           </div>`
+        : c.msds
+          ? `<div style="margin-top:10px;"><a style="font-size:12px;color:var(--accent);" href="${c.msds}" target="_blank">MSDS 파일 열기</a></div>`
+          : `<div style="margin-top:10px;font-size:11px;color:var(--text3);">MSDS 미등록 — MSDS 탭에서 AI 자동 작성</div>`
+      }
+    `;
+  } else if(tab==='edit'){
+    el.innerHTML=`
+      <div class="form-group"><label class="form-label">약품명</label><input class="form-control" id="e-name" value="${escH(c.name)}"/></div>
+      <div class="form-row" style="margin-bottom:12px;">
+        <div><label class="form-label">카테고리</label>
+          <select class="form-control" id="e-cat">${catOpts(chemCatList(),c.cat)}</select>
+          ${addCatRow('edit-chem-cat','addChemCat')}
+        </div>
+        <div><label class="form-label">취급자</label><select class="form-control" id="e-handler">${memberOpts(c.handler)}</select></div>
+      </div>
+      <div class="form-group"><label class="form-label">사용 목적</label><textarea class="form-control" id="e-purpose" rows="2" style="resize:none;">${escH(c.purpose)}</textarea></div>
+      <div class="form-row" style="margin-bottom:12px;">
+        <div><label class="form-label">현재 수량</label><input class="form-control" type="number" id="e-qty" value="${parseInt(c.qty)||0}" min="0"/></div>
+        <div><label class="form-label">단위</label><select class="form-control" id="e-unit">${unitOpts}</select></div>
+      </div>
+      <button class="submit-btn" onclick="submitEditChem()">변경 저장</button>
+    `;
+  } else if(tab==='io'){
+    chemIODir='add';
+    el.innerHTML=`
+      <div class="info-block">
+        <div class="info-block-row"><span class="info-block-label">현재 수량</span><span class="info-block-val">${c.qty}</span></div>
+      </div>
+      <div class="seg-wrap">
+        <button id="seg-in" class="seg-btn in active" onclick="setChemIO('add')">입고 (IN)</button>
+        <button id="seg-out" class="seg-btn out" onclick="setChemIO('use')">출고 (OUT)</button>
+      </div>
+      <div class="form-group"><label class="form-label">수량</label>
+        <div class="qty-ctrl">
+          <button class="qty-btn" onclick="adjQ(-1)">−</button>
+          <span class="qty-display" id="f-qdisp">1</span>
+          <button class="qty-btn" onclick="adjQ(1)">+</button>
+          <input type="hidden" id="f-qval" value="1"/>
+          <select class="form-control" id="f-unit" style="width:72px;font-size:12px;"><option>EA</option><option>mL</option><option>g</option><option>kg</option><option>L</option></select>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">담당자</label><select class="form-control" id="f-handler">${memberOpts('')}</select></div>
+      <div class="form-group"><label class="form-label">메모</label><textarea class="form-control" id="f-memo" rows="2" style="resize:none;" placeholder="시험 번호, 목적 등..."></textarea></div>
+      <button class="submit-btn" id="io-submit-btn" onclick="submitChemIO()">입고 저장</button>
+    `;
+  } else if(tab==='date'){
+    el.innerHTML=`
+      <div class="form-group"><label class="form-label">구매일</label><input class="form-control" type="date" id="f-pur" value="${c.purchased!=='-'?c.purchased:''}"/></div>
+      <div class="form-group"><label class="form-label">개봉일</label>
+        <input class="form-control" type="date" id="f-opn" value="${c.opened!=='-'?c.opened:''}" oninput="autoDispose()"/>
+        <div style="font-size:10px;color:var(--text3);margin-top:3px;">개봉일 입력 시 폐기 예정일이 1년 뒤로 자동 설정됩니다</div>
+      </div>
+      <div class="form-group"><label class="form-label">폐기 예정일</label><input class="form-control" type="date" id="f-dis" value="${c.disposed!=='-'?c.disposed:''}"/></div>
+      <button class="submit-btn" onclick="submitDates()">날짜 저장</button>
+    `;
+  } else if(tab==='msds'){
+    el.innerHTML=`
+      <!-- 카메라 / 업로드 -->
+      <div style="background:linear-gradient(135deg,#1e3a8a,#2563eb);border-radius:var(--radius-lg);padding:14px;margin-bottom:14px;color:#fff;">
+        <div style="font-size:13px;font-weight:700;margin-bottom:3px;">MSDS 자동 검색 + AI 작성</div>
+        <div style="font-size:11px;opacity:.8;margin-bottom:12px;">사진 촬영 → 약품 인식 → 공식 MSDS 검색 → 없으면 AI가 직접 작성</div>
+        <label style="display:flex;align-items:center;justify-content:center;gap:8px;background:rgba(255,255,255,.15);border:2px dashed rgba(255,255,255,.4);border-radius:var(--radius);padding:14px;cursor:pointer;font-size:12px;font-weight:700;" id="cam-label">
+          <span style="font-size:20px;">📷</span>
+          <span id="cam-label-text">약품 라벨 사진 촬영 또는 파일 선택</span>
+          <input type="file" accept="image/*" capture="environment" id="msds-photo-input" style="display:none;" onchange="onMsdsPhotoSelected(event)"/>
+        </label>
+        <div id="msds-preview-wrap" style="display:none;margin-top:10px;">
+          <img id="msds-preview-img" style="width:100%;border-radius:var(--radius);max-height:130px;object-fit:cover;"/>
+          <button onclick="runMsdsSearch()" id="msds-ai-btn" style="width:100%;margin-top:8px;padding:10px;background:#fff;color:#1e3a8a;border:none;border-radius:var(--radius);font-size:13px;font-weight:700;cursor:pointer;font-family:var(--font);">MSDS 검색 시작</button>
+        </div>
+      </div>
+
+      <!-- 로딩 (단계별 메시지) -->
+      <div id="msds-loading" style="display:none;padding:20px 0;">
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <div id="step1" style="display:flex;align-items:center;gap:10px;opacity:.35;transition:opacity .3s;">
+            <div id="step1-icon" style="width:24px;height:24px;border-radius:50%;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;">1</div>
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--text);">약품 정보 인식 중</div>
+              <div style="font-size:10px;color:var(--text3);">라벨에서 약품명 / CAS 번호 추출</div>
+            </div>
+          </div>
+          <div id="step2" style="display:flex;align-items:center;gap:10px;opacity:.35;transition:opacity .3s;">
+            <div id="step2-icon" style="width:24px;height:24px;border-radius:50%;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;">2</div>
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--text);">공식 MSDS 검색 중</div>
+              <div style="font-size:10px;color:var(--text3);">화학물질안전원 · 제조사 홈페이지</div>
+            </div>
+          </div>
+          <div id="step3" style="display:flex;align-items:center;gap:10px;opacity:.35;transition:opacity .3s;">
+            <div id="step3-icon" style="width:24px;height:24px;border-radius:50%;background:var(--bg4);display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0;">3</div>
+            <div>
+              <div style="font-size:12px;font-weight:700;color:var(--text);">MSDS 작성 중</div>
+              <div style="font-size:10px;color:var(--text3);">공식 MSDS 기반 또는 AI 직접 작성</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 결과: 공식 MSDS 발견 -->
+      <div id="msds-found-result" style="display:none;">
+        <div style="background:var(--green-dim);border:1px solid rgba(22,163,74,.25);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;display:flex;align-items:flex-start;gap:8px;">
+          <span style="color:var(--green);font-size:16px;flex-shrink:0;margin-top:1px;">✓</span>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--green);margin-bottom:2px;">공식 MSDS를 찾았습니다</div>
+            <div id="msds-found-source" style="font-size:11px;color:var(--text2);"></div>
+          </div>
+        </div>
+        <div id="msds-found-links" style="display:flex;flex-direction:column;gap:6px;margin-bottom:10px;"></div>
+        <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">아래 AI 작성 초안도 함께 확인하세요</div>
+      </div>
+
+      <!-- 결과: 공식 MSDS 없음 -->
+      <div id="msds-notfound-result" style="display:none;">
+        <div style="background:var(--amber-dim);border:1px solid rgba(217,119,6,.25);border-radius:var(--radius);padding:10px 12px;margin-bottom:10px;display:flex;align-items:flex-start;gap:8px;">
+          <span style="color:var(--amber);font-size:16px;flex-shrink:0;margin-top:1px;">!</span>
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--amber);margin-bottom:2px;">공식 MSDS를 찾지 못했습니다</div>
+            <div style="font-size:11px;color:var(--text2);">AI가 직접 MSDS 초안을 작성했습니다. 전문가 검토 후 사용하세요.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI 초안 공통 영역 -->
+      <div id="msds-ai-result" style="display:none;">
+        <div style="font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;" id="msds-result-label">AI 작성 초안</div>
+        <div id="msds-ai-content" style="background:var(--bg3);border-radius:var(--radius);padding:12px;font-size:11px;line-height:1.7;color:var(--text);border:1px solid var(--border2);max-height:260px;overflow-y:auto;white-space:pre-wrap;"></div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button onclick="saveMsdsFromAI()" class="submit-btn" style="flex:1;margin-top:0;">이 내용으로 저장</button>
+          <button onclick="resetMsds()" class="submit-btn outline" style="flex:0 0 auto;width:70px;margin-top:0;font-size:11px;">초기화</button>
+        </div>
+      </div>
+
+      <!-- 직접 입력 -->
+      <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px;">
+        <div class="form-label" style="margin-bottom:5px;">직접 URL / 파일경로 등록</div>
+        <input class="form-control" id="f-msds" value="${escH(c.msds||'')}" placeholder="https://... 또는 파일명.pdf"/>
+        <button class="submit-btn outline" onclick="submitMSDS()" style="margin-top:8px;font-size:12px;">URL 저장</button>
+      </div>
+      <style>@keyframes spin{to{transform:rotate(360deg)}}
+      .step-active{opacity:1!important;}
+      .step-done{opacity:1!important;}
+      .step-done .step-num{background:var(--green)!important;color:#fff!important;}
+      </style>
+    `;
+  }
+}
+
+/* 개봉일 → 폐기 자동 세팅 */
+function autoDispose(){
+  const opn=document.getElementById('f-opn').value;
+  if(!opn)return;
+  const dis=addOneYear(opn);
+  const disEl=document.getElementById('f-dis');
+  if(disEl&&(!disEl.value||disEl.value===''))disEl.value=dis;
+  else if(disEl)disEl.value=dis;
+}
+
+/* 입출고 방향 토글 */
+function setChemIO(dir){
+  chemIODir=dir;
+  document.getElementById('seg-in').classList.toggle('active',dir==='add');
+  document.getElementById('seg-out').classList.toggle('active',dir==='use');
+  const btn=document.getElementById('io-submit-btn');
+  if(btn)btn.textContent=dir==='add'?'입고 저장':'출고 저장';
+}
+function submitChemIO(){
+  const c=chemicals.find(x=>x.id===curChemId);if(!c)return;
+  const qty=parseInt(document.getElementById('f-qval').value)||1;
+  const unit=document.getElementById('f-unit').value;
+  const handler=document.getElementById('f-handler').value||'미지정';
+  const memo=document.getElementById('f-memo').value;
+  const cur=parseInt(c.qty)||0;
+  c.qty=(chemIODir==='add'?cur+qty:Math.max(0,cur-qty))+' '+unit;
+  addLog(c.name,chemIODir,qty+' '+unit,handler,memo);
+  fbSaveChem(c);
+  closeModal();renderAll();
+  showToast(`${c.name.slice(0,18)} ${chemIODir==='use'?'출고':'입고'} ${qty}${unit}`,chemIODir==='use'?'error':'success');
+}
+
+function submitEditChem(){
+  const c=chemicals.find(x=>x.id===curChemId);if(!c)return;
+  c.name=document.getElementById('e-name').value.trim()||c.name;
+  c.cat=document.getElementById('e-cat').value;
+  c.handler=document.getElementById('e-handler').value||'-';
+  c.purpose=document.getElementById('e-purpose').value.trim()||'-';
+  c.qty=(document.getElementById('e-qty').value||'0')+' '+document.getElementById('e-unit').value;
+  closeModal();renderAll();showToast('약품 정보가 수정되었습니다','success');
+  fbSaveChem(c);
+}
+function submitDates(){
+  const c=chemicals.find(x=>x.id===curChemId);if(!c)return;
+  c.purchased=document.getElementById('f-pur').value||'-';
+  c.opened=document.getElementById('f-opn').value||'-';
+  c.disposed=document.getElementById('f-dis').value||'-';
+  closeModal();renderAll();showToast('날짜 정보 저장됨','success');
+}
+
+/* ── MSDS: 검색 + AI 작성 ── */
+let msdsPhotoBase64 = null;
+let msdsAiText = '';
+
+function onMsdsPhotoSelected(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUrl = e.target.result;
+    msdsPhotoBase64 = dataUrl.split(',')[1];
+    document.getElementById('msds-preview-img').src = dataUrl;
+    document.getElementById('msds-preview-wrap').style.display = 'block';
+    document.getElementById('cam-label-text').textContent = file.name;
+  };
+  reader.readAsDataURL(file);
+}
+
+function setStep(n, done) {
+  const el = document.getElementById('step' + n);
+  if (!el) return;
+  el.style.opacity = '1';
+  const icon = document.getElementById('step' + n + '-icon');
+  if (done && icon) {
+    icon.style.background = 'var(--green)';
+    icon.style.color = '#fff';
+    icon.textContent = '✓';
+  }
+}
+
+function resetMsds() {
+  ['msds-found-result','msds-notfound-result','msds-ai-result','msds-loading'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  msdsPhotoBase64 = null;
+  msdsAiText = '';
+  document.getElementById('msds-preview-wrap').style.display = 'none';
+  document.getElementById('cam-label-text').textContent = '약품 라벨 사진 촬영 또는 파일 선택';
+  const btn = document.getElementById('msds-ai-btn');
+  if (btn) btn.disabled = false;
+}
+
+async function runMsdsSearch() {
+  if (!msdsPhotoBase64) { showToast('사진을 먼저 선택해주세요', 'error'); return; }
+  const c = chemicals.find(x => x.id === curChemId);
+  const chemName = c ? c.name : '';
+  const chemCat  = c ? c.cat  : '';
+  const chemPurpose = c ? c.purpose : '';
+
+  // 초기화
+  ['msds-found-result','msds-notfound-result','msds-ai-result'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  [1,2,3].forEach(n => {
+    const el = document.getElementById('step'+n);
+    if (el) { el.style.opacity = '.35'; }
+    const ic = document.getElementById('step'+n+'-icon');
+    if (ic) { ic.style.background = 'var(--bg4)'; ic.style.color = 'var(--text2)'; ic.textContent = n; }
+  });
+  document.getElementById('msds-loading').style.display = 'block';
+  document.getElementById('msds-ai-btn').disabled = true;
+
+  try {
+    // ── STEP 1: 약품 인식 + MSDS 검색 + 초안 작성 (한 번의 API 호출로) ──
+    setStep(1, false);
+
+    const prompt = `당신은 산업안전보건법 및 GHS 기준에 정통한 MSDS 전문가입니다.
+
+[등록된 약품 정보]
+- 약품명: ${chemName || '(사진에서 확인)'}
+- 카테고리: ${chemCat}
+- 사용 목적: ${chemPurpose}
+
+사진을 보고 다음 JSON 형식으로만 응답해주세요. 절대 JSON 외 텍스트 없이:
+
+{
+  "recognized_name": "사진에서 인식한 정확한 약품명 (영문/한글)",
+  "cas_number": "CAS 번호 (라벨에서 읽기, 없으면 알려진 CAS, 모르면 null)",
+  "manufacturer": "제조사명 (라벨에서 읽기, 없으면 null)",
+  "concentration": "농도 (예: 98%, 1M 등, 없으면 null)",
+  "msds_search_urls": [
+    {
+      "source": "화학물질안전원",
+      "url": "https://msds.csc.me.go.kr/msds/mdl_info.do?search=${encodeURIComponent(chemName||'약품')}",
+      "note": "CAS번호로 검색 권장"
+    },
+    {
+      "source": "Sigma-Aldrich",
+      "url": "https://www.sigmaaldrich.com/KR/ko/search/검색어?focus=products&page=1&perpage=10&sort=relevance&term=인식된약품명CAS번호&type=product",
+      "note": "SDS 탭에서 다운로드"
+    },
+    {
+      "source": "TCI Chemicals",
+      "url": "https://www.tcichemicals.com/KR/ko/search/#q=인식된약품명&t=All",
+      "note": "SDS 다운로드 가능"
+    }
+  ],
+  "msds_text": "아래 한국어 MSDS 16개 항목 전문 (산업안전보건법 고시 제2020-130호 양식 기준):\\n\\n1. 화학제품과 회사에 관한 정보\\n...\\n16. 그 밖의 참고사항\\n\\n※ 라벨에서 읽은 정보를 최대한 반영하고, 불확실한 항목은 [확인 필요]로 표시"
+}
+
+msds_text 항목에는 16개 항목을 모두 포함한 완전한 MSDS 한국어 초안을 작성해주세요.`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4096,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: msdsPhotoBase64 } },
+            { type: 'text', text: prompt }
+          ]
+        }]
+      })
+    });
+
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    setStep(1, true);
+
+    // JSON 파싱
+    const raw = data.content.map(b => b.text || '').join('');
+    let parsed;
+    try {
+      const jsonMatch = raw.match(/\{[\s\S]*\}/);
+      parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw);
+    } catch(e) {
+      // JSON 파싱 실패 시 텍스트 그대로 사용
+      parsed = { recognized_name: chemName, cas_number: null, manufacturer: null, msds_search_urls: [], msds_text: raw };
+    }
+
+    setStep(2, false);
+    // MSDS 검색 URL 구성 (CAS 번호 반영)
+    const cas = parsed.cas_number || '';
+    const recognizedName = parsed.recognized_name || chemName;
+    const searchLinks = [
+      { source: '화학물질안전원 (MSDS)', url: `https://msds.csc.me.go.kr/msds/mdl_list.do?searchWord=${encodeURIComponent(cas||recognizedName)}`, note: '공공기관 공식 MSDS DB' },
+      { source: 'Sigma-Aldrich SDS', url: `https://www.sigmaaldrich.com/KR/ko/search/all?query=${encodeURIComponent(cas||recognizedName)}`, note: '제조사별 공식 SDS' },
+      { source: 'TCI Chemicals SDS', url: `https://www.tcichemicals.com/KR/ko/search/#q=${encodeURIComponent(recognizedName)}`, note: 'SDS PDF 다운로드' },
+    ];
+    if (cas) {
+      searchLinks.unshift({ source: 'ECHA (CAS: ' + cas + ')', url: `https://echa.europa.eu/ko/search-for-chemicals?p_p_id=disscomp_WAR_disscompportlet&SearchKey=${cas}`, note: '유럽 화학물질청 공식 데이터' });
+    }
+    setStep(2, true);
+    setStep(3, false);
+
+    // 검색 링크 렌더
+    const linksEl = document.getElementById('msds-found-links');
+    if (linksEl) {
+      linksEl.innerHTML = searchLinks.map(l =>
+        `<a href="${l.url}" target="_blank" style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:var(--bg2);border:1px solid var(--border2);border-radius:var(--radius);text-decoration:none;gap:8px;">
+          <div>
+            <div style="font-size:12px;font-weight:700;color:var(--accent);">${l.source}</div>
+            <div style="font-size:10px;color:var(--text3);">${l.note}</div>
+          </div>
+          <span style="font-size:12px;color:var(--text3);flex-shrink:0;">→</span>
+        </a>`
+      ).join('');
+    }
+
+    const sourceEl = document.getElementById('msds-found-source');
+    if (sourceEl) {
+      sourceEl.textContent = `인식된 약품: ${recognizedName}${cas ? ' · CAS ' + cas : ''}${parsed.manufacturer ? ' · ' + parsed.manufacturer : ''}`;
+    }
+
+    // 결과 표시
+    document.getElementById('msds-found-result').style.display = 'block';
+    document.getElementById('msds-loading').style.display = 'none';
+
+    // AI 초안
+    msdsAiText = parsed.msds_text || '';
+    if (msdsAiText) {
+      document.getElementById('msds-ai-content').textContent = msdsAiText;
+      document.getElementById('msds-result-label').textContent = 'AI 작성 MSDS 초안 (아래 링크에서 공식 MSDS도 확인하세요)';
+      document.getElementById('msds-ai-result').style.display = 'block';
+    }
+    setStep(3, true);
+
+    // 약품명 자동 업데이트
+    if (c && recognizedName && recognizedName !== chemName) {
+      showToast(`약품 인식: ${recognizedName}`, 'success');
+    } else {
+      showToast('MSDS 검색 완료!', 'success');
+    }
+
+  } catch(err) {
+    document.getElementById('msds-loading').style.display = 'none';
+    document.getElementById('msds-notfound-result').style.display = 'block';
+    document.getElementById('msds-ai-btn').disabled = false;
+    showToast('오류: ' + err.message, 'error');
+    console.error(err);
+  }
+}
+
+function saveMsdsFromAI() {
+  const c = chemicals.find(x => x.id === curChemId);
+  if (!c || !msdsAiText) return;
+  c.msds = '[AI 초안]';
+  c.msdsFullText = msdsAiText;
+  fbSaveChem(c);
+  closeModal(); renderAll();
+  showToast('MSDS 초안이 저장되었습니다', 'success');
+}
+
+function submitMSDS(){
+  const c=chemicals.find(x=>x.id===curChemId);if(!c)return;
+  c.msds=document.getElementById('f-msds').value;
+  closeModal();renderAll();showToast('MSDS 저장됨','success');
+  fbSaveChem(c);
+}
+function submitNewChem(){
+  const name=document.getElementById('f-name').value.trim();if(!name){showToast('약품명을 입력하세요','error');return;}
+  const newId=Math.max(...chemicals.map(c=>c.id))+1;
+  chemicals.push({id:newId,name,handler:document.getElementById('f-handler').value||'-',purpose:document.getElementById('f-purpose').value||'-',qty:document.getElementById('f-qty').value+' '+document.getElementById('f-unit').value,purchased:'-',opened:'-',disposed:'-',msds:'',cat:document.getElementById('f-cat').value});
+  const _nc=chemicals[chemicals.length-1];
+  fbSaveChem(_nc);
+  closeModal();renderAll();showToast(`'${name}' 등록 완료`,'success');
+}
+
+/* ── PART 모달 ── */
+function openPartModal(equipId,partIdx){
+  const e=ciEquip.find(x=>x.id===equipId);if(!e)return;
+  curCIEquipId=equipId;curCIPartIdx=partIdx;const p=e.parts[partIdx];
+  openModal(p.n,e.name,`<div class="action-tabs"><button class="action-tab active" id="tab-io" onclick="partTab('io')">입출고</button><button class="action-tab" id="tab-edit" onclick="partTab('edit')">수정</button><button class="action-tab" id="tab-del" onclick="partTab('del')" style="color:var(--red);">삭제</button></div><div id="part-modal-content"></div>`);
+  partIODir='add';
+  partTab('io');
+}
+
+/* 신규 파트 추가 모달 */
+function openAddPartModal(equipId){
+  const e=ciEquip.find(x=>x.id===equipId);if(!e)return;
+  curCIEquipId=equipId;
+  openModal('파트 추가', e.name, `
+    <div class="form-group"><label class="form-label">파트명</label><input class="form-control" id="np-name" placeholder="예: Outer Filter SODALIME"/></div>
+    <div class="form-row" style="margin-bottom:12px;">
+      <div><label class="form-label">현재 보유</label><input class="form-control" type="number" id="np-have" value="0" min="0"/></div>
+      <div><label class="form-label">분기 필요</label><input class="form-control" type="number" id="np-need" value="0" min="0"/></div>
+    </div>
+    <div class="form-row" style="margin-bottom:12px;">
+      <div><label class="form-label">품목코드</label><input class="form-control" id="np-code" placeholder="예: C110034086"/></div>
+      <div><label class="form-label">단가 (원)</label><input class="form-control" type="number" id="np-price" value="0" min="0"/></div>
+    </div>
+    <button class="submit-btn" onclick="submitAddPart()">파트 등록</button>
+  `);
+}
+
+function submitAddPart(){
+  const e=ciEquip.find(x=>x.id===curCIEquipId);if(!e)return;
+  const nameEl=document.getElementById('np-name');
+  const name=nameEl?nameEl.value.trim():'';
+  if(!name){showToast('파트명을 입력하세요','error');return;}
+  e.parts.push({
+    n: name,
+    have: parseInt((document.getElementById('np-have')||{}).value)||0,
+    need: parseInt((document.getElementById('np-need')||{}).value)||0,
+    code: ((document.getElementById('np-code')||{}).value||'').trim()||'—',
+    price: parseInt((document.getElementById('np-price')||{}).value)||0,
+    serial: '—'
+  });
+  ciOpenMap[curCIEquipId]=true;
+  closeModal();renderAll();
+  showToast(`'${name}' 파트 등록 완료`,'success');
+}
+function partTab(tab){
+  document.querySelectorAll('.action-tab').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('tab-'+tab);if(btn)btn.classList.add('active');
+  const e=ciEquip.find(x=>x.id===curCIEquipId);if(!e)return;
+  const p=e.parts[curCIPartIdx],ps=partSt(p),col=ps==='ok'?'var(--green)':ps==='low'?'var(--amber)':'var(--red)';
+  const el=document.getElementById('part-modal-content');
+  if(tab==='io'){
+    el.innerHTML=`
+      <div class="info-block">
+        <div class="info-block-row"><span class="info-block-label">현재 보유</span><span class="info-block-val" style="color:${col};font-size:17px;">${p.have} EA</span></div>
+        <div class="info-block-row"><span class="info-block-label">분기 필요</span><span class="info-block-val">${p.need>0?p.need+' EA':'—'}</span></div>
+        <div class="info-block-row"><span class="info-block-label">품목코드</span><span class="info-block-val">${p.code}</span></div>
+        ${p.price>0?`<div class="info-block-row"><span class="info-block-label">단가</span><span class="info-block-val">₩${p.price.toLocaleString()}</span></div>`:''}
+      </div>
+      <div class="seg-wrap">
+        <button id="pseg-in" class="seg-btn in active" onclick="setPartIO('add')">입고 (IN)</button>
+        <button id="pseg-out" class="seg-btn out" onclick="setPartIO('use')">출고 (OUT)</button>
+      </div>
+      <div class="form-group"><label class="form-label">수량</label>
+        <div class="qty-ctrl">
+          <button class="qty-btn" onclick="adjPQ(-1)">−</button>
+          <span class="qty-display" id="p-qdisp">1</span>
+          <button class="qty-btn" onclick="adjPQ(1)">+</button>
+          <input type="hidden" id="p-qval" value="1"/>
+        </div>
+      </div>
+      <div class="form-group"><label class="form-label">담당자</label><select class="form-control" id="p-handler">${memberOpts('')}</select></div>
+      <div class="form-group"><label class="form-label">메모</label><textarea class="form-control" id="p-memo" rows="2" style="resize:none;" placeholder="Serial 번호, 비고..."></textarea></div>
+      <button class="submit-btn" id="pio-btn" onclick="submitPart()">입고 저장</button>
+    `;
+  } else if(tab==='edit'){
+    el.innerHTML=`
+      <div class="form-group"><label class="form-label">파트명</label><input class="form-control" id="pe-name" value="${escH(p.n)}"/></div>
+      <div class="form-row" style="margin-bottom:12px;">
+        <div><label class="form-label">현재 보유</label><input class="form-control" type="number" id="pe-have" value="${p.have}" min="0"/></div>
+        <div><label class="form-label">분기 필요</label><input class="form-control" type="number" id="pe-need" value="${p.need}" min="0"/></div>
+      </div>
+      <div class="form-row" style="margin-bottom:12px;">
+        <div><label class="form-label">품목코드</label><input class="form-control" id="pe-code" value="${escH(p.code)}"/></div>
+        <div><label class="form-label">단가 (원)</label><input class="form-control" type="number" id="pe-price" value="${p.price}" min="0"/></div>
+      </div>
+      <button class="submit-btn" onclick="submitEditPart()">변경 저장</button>
+    `;
+  } else if(tab==='del'){
+    el.innerHTML=`
+      <div style="text-align:center;padding:10px 0 16px;">
+        <div style="font-size:32px;margin-bottom:10px;">🗑</div>
+        <div style="font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px;">${escH(p.n)}</div>
+        <div style="font-size:12px;color:var(--text2);margin-bottom:20px;">${e.name} 의 파트를 삭제합니다.<br>이 작업은 되돌릴 수 없습니다.</div>
+        <button class="submit-btn danger" onclick="submitDeletePart()">파트 삭제</button>
+      </div>
+    `;
+  }
+}
+function setPartIO(dir){
+  partIODir=dir;
+  document.getElementById('pseg-in').classList.toggle('active',dir==='add');
+  document.getElementById('pseg-out').classList.toggle('active',dir==='use');
+  const btn=document.getElementById('pio-btn');if(btn)btn.textContent=dir==='add'?'입고 저장':'출고 저장';
+}
+function submitPart(){
+  const e=ciEquip.find(x=>x.id===curCIEquipId);if(!e)return;
+  const p=e.parts[curCIPartIdx];
+  const qty=parseInt(document.getElementById('p-qval').value)||1;
+  const handler=document.getElementById('p-handler').value||'미지정';
+  const memo=document.getElementById('p-memo').value;
+  if(partIODir==='add')p.have+=qty;else p.have=Math.max(0,p.have-qty);
+  addLog(`${p.n} — ${e.name}`,partIODir,qty+' EA',handler,memo);
+  fbSaveCI(e);
+  closeModal();renderAll();showToast(`${p.n} ${partIODir==='add'?'입고':'출고'} ${qty}EA`,partIODir==='use'?'error':'success');
+}
+function submitEditPart(){
+  const e=ciEquip.find(x=>x.id===curCIEquipId);if(!e)return;
+  const p=e.parts[curCIPartIdx];
+  p.n=document.getElementById('pe-name').value.trim()||p.n;
+  p.have=parseInt(document.getElementById('pe-have').value)||0;
+  p.need=parseInt(document.getElementById('pe-need').value)||0;
+  p.code=document.getElementById('pe-code').value.trim()||p.code;
+  p.price=parseInt(document.getElementById('pe-price').value)||0;
+  fbSaveCI(e);
+  closeModal();renderAll();showToast('파트 정보가 수정되었습니다','success');
+}
+function submitDeletePart(){
+  const e=ciEquip.find(x=>x.id===curCIEquipId);if(!e)return;
+  const p=e.parts[curCIPartIdx];
+  if(!confirm(`'${p.n}'을(를) 삭제하시겠습니까?`))return;
+  e.parts.splice(curCIPartIdx,1);
+  fbSaveCI(e);
+  closeModal();renderAll();showToast(`'${p.n}' 파트 삭제됨`,'success');
+}
+
+/* ── CI 파트 추가 모달 ── */
+function openAddPartModal(equipId){
+  const e=ciEquip.find(x=>x.id===equipId);if(!e)return;
+  curCIEquipId=equipId;
+  openModal('파트 추가', e.name, `
+    <div class="form-group">
+      <label class="form-label">파트명</label>
+      <input class="form-control" id="ap-name" placeholder="예: Xenon lamp, Outer Filter SODALIME"/>
+    </div>
+    <div class="form-row" style="margin-bottom:12px;">
+      <div>
+        <label class="form-label">현재 보유 수량</label>
+        <input class="form-control" type="number" id="ap-have" value="0" min="0"/>
+      </div>
+      <div>
+        <label class="form-label">분기 필요 수량</label>
+        <input class="form-control" type="number" id="ap-need" value="0" min="0"/>
+      </div>
+    </div>
+    <div class="form-row" style="margin-bottom:12px;">
+      <div>
+        <label class="form-label">품목코드</label>
+        <input class="form-control" id="ap-code" placeholder="예: C110034108"/>
+      </div>
+      <div>
+        <label class="form-label">단가 (원)</label>
+        <input class="form-control" type="number" id="ap-price" value="0" min="0"/>
+      </div>
+    </div>
+    <button class="submit-btn" onclick="submitAddPart()">파트 추가</button>
+  `);
+}
+
+function submitAddPart(){
+  const e=ciEquip.find(x=>x.id===curCIEquipId);if(!e)return;
+  const name=(document.getElementById('ap-name')||{}).value?.trim();
+  if(!name){showToast('파트명을 입력하세요','error');return;}
+  e.parts.push({
+    n: name,
+    have: parseInt(document.getElementById('ap-have').value)||0,
+    need: parseInt(document.getElementById('ap-need').value)||0,
+    code: document.getElementById('ap-code').value.trim()||'—',
+    price: parseInt(document.getElementById('ap-price').value)||0,
+    serial: '-'
+  });
+  fbSaveCI(e);
+  closeModal();renderAll();showToast(`'${name}' 파트 추가됨`,'success');
+}
+
+/* ── BW 모달 ── */
+function openBWModal(id,mode){
+  curBWId=id;const item=bwItems.find(x=>x.id===id)||null;
+  const bwCO=catOpts(bwCatList(),'');
+  if(mode==='new'){openModal('소모품 등록','방화도',`
+    <div class="form-group"><label class="form-label">소모품명</label><input class="form-control" id="bw-name"/></div>
+    <div class="form-row" style="margin-bottom:12px;">
+      <div><label class="form-label">카테고리</label><select class="form-control" id="bw-cat">${bwCO}</select>
+        ${addCatRow('new-bw-cat','addBwCat')}</div>
+      <div><label class="form-label">단위</label><select class="form-control" id="bw-unit"><option>EA</option><option>개</option><option>roll</option></select></div>
+    </div>
+    <div class="form-group"><label class="form-label">초기 수량</label><input class="form-control" type="number" id="bw-qty" value="1" min="0"/></div>
+    <button class="submit-btn" onclick="submitNewBW()">등록</button>
+  `);return;}
+  if(!item)return;
+  openModal(item.n,item.cat,`<div class="action-tabs"><button class="action-tab active" id="tab-info" onclick="bwTab('info')">정보</button><button class="action-tab" id="tab-edit" onclick="bwTab('edit')">수정</button><button class="action-tab" id="tab-io" onclick="bwTab('io')">입출고</button></div><div id="bw-modal-content"></div>`);
+  bwIODir='add';bwTab('info');
+}
+function bwTab(tab){
+  document.querySelectorAll('.action-tab').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('tab-'+tab);if(btn)btn.classList.add('active');
+  const item=bwItems.find(x=>x.id===curBWId);if(!item)return;
+  const st=getStatus(item.qty),col=dotColor(st),el=document.getElementById('bw-modal-content');
+  if(tab==='info'){el.innerHTML=`<div class="info-block"><div class="info-block-row"><span class="info-block-label">현재 수량</span><span class="info-block-val" style="color:${col};">${item.qty} ${item.unit}</span></div><div class="info-block-row"><span class="info-block-label">카테고리</span><span class="info-block-val">${item.cat}</span></div><div class="info-block-row"><span class="info-block-label">상태</span><span class="info-block-val">${st==='ok'?'정상':st==='low'?'부족':'주의'}</span></div></div>`;}
+  else if(tab==='edit'){el.innerHTML=`
+    <div class="form-group"><label class="form-label">소모품명</label><input class="form-control" id="be-name" value="${escH(item.n)}"/></div>
+    <div class="form-row" style="margin-bottom:12px;">
+      <div><label class="form-label">카테고리</label>
+        <select class="form-control" id="be-cat">${catOpts(bwCatList(),item.cat)}</select>
+        ${addCatRow('edit-bw-cat','addBwCat')}
+      </div>
+      <div><label class="form-label">단위</label><select class="form-control" id="be-unit">${['EA','개','roll'].map(u=>`<option${item.unit===u?' selected':''}>${u}</option>`).join('')}</select></div>
+    </div>
+    <div class="form-group"><label class="form-label">수량</label><input class="form-control" type="number" id="be-qty" value="${item.qty}" min="0"/></div>
+    <button class="submit-btn" onclick="submitEditBW()">변경 저장</button>
+  `;}
+  else{el.innerHTML=`
+    <div class="info-block"><div class="info-block-row"><span class="info-block-label">현재 수량</span><span class="info-block-val" style="color:${col};">${item.qty} ${item.unit}</span></div></div>
+    <div class="seg-wrap">
+      <button id="bseg-in" class="seg-btn in active" onclick="setBwIO('add')">입고 (IN)</button>
+      <button id="bseg-out" class="seg-btn out" onclick="setBwIO('use')">출고 (OUT)</button>
+    </div>
+    <div class="form-group"><label class="form-label">수량</label><div class="qty-ctrl"><button class="qty-btn" onclick="adjBWQ(-1)">−</button><span class="qty-display" id="bw-qdisp">1</span><button class="qty-btn" onclick="adjBWQ(1)">+</button><input type="hidden" id="bw-qval" value="1"/></div></div>
+    <div class="form-group"><label class="form-label">담당자</label><select class="form-control" id="bw-handler">${memberOpts('')}</select></div>
+    <div class="form-group"><label class="form-label">메모</label><textarea class="form-control" id="bw-memo" rows="2" style="resize:none;" placeholder="비고..."></textarea></div>
+    <button class="submit-btn" id="bio-btn" onclick="submitBW()">입고 저장</button>
+  `;}
+}
+function setBwIO(dir){
+  bwIODir=dir;
+  document.getElementById('bseg-in').classList.toggle('active',dir==='add');
+  document.getElementById('bseg-out').classList.toggle('active',dir==='use');
+  const btn=document.getElementById('bio-btn');if(btn)btn.textContent=dir==='add'?'입고 저장':'출고 저장';
+}
+function submitBW(){
+  const item=bwItems.find(x=>x.id===curBWId);if(!item)return;
+  const qty=parseInt(document.getElementById('bw-qval').value)||1,handler=document.getElementById('bw-handler').value||'미지정',memo=document.getElementById('bw-memo').value;
+  if(bwIODir==='add')item.qty+=qty;else item.qty=Math.max(0,item.qty-qty);
+  addLog(item.n,bwIODir,qty+' '+item.unit,handler,memo);closeModal();renderAll();showToast(`${item.n} ${bwIODir==='add'?'입고':'출고'} ${qty}${item.unit}`,bwIODir==='use'?'error':'success');
+}
+function submitEditBW(){
+  const item=bwItems.find(x=>x.id===curBWId);if(!item)return;
+  item.n=document.getElementById('be-name').value.trim()||item.n;item.cat=document.getElementById('be-cat').value;item.unit=document.getElementById('be-unit').value;item.qty=parseInt(document.getElementById('be-qty').value)||0;
+  closeModal();renderAll();showToast('소모품 정보가 수정되었습니다','success');
+}
+function submitNewBW(){
+  const name=document.getElementById('bw-name').value.trim();if(!name){showToast('소모품명을 입력하세요','error');return;}
+  const newId=Math.max(...bwItems.map(i=>i.id))+1;
+  bwItems.push({id:newId,n:name,cat:document.getElementById('bw-cat').value,qty:parseInt(document.getElementById('bw-qty').value)||0,unit:document.getElementById('bw-unit').value});
+  closeModal();renderAll();showToast(`'${name}' 등록 완료`,'success');
+}
+
+/* ── ETC 모달 ── */
+function openEtcModal(id,mode){
+  curEtcId=id;const item=etcItems.find(x=>x.id===id)||null;
+  const etcCO=catOpts(etcCatList(),'');
+  if(mode==='new'){openModal('기타 소모품 등록','',`
+    <div class="form-group"><label class="form-label">소모품명</label><input class="form-control" id="et-name"/></div>
+    <div class="form-row" style="margin-bottom:12px;">
+      <div><label class="form-label">카테고리</label><select class="form-control" id="et-cat">${etcCO}</select>
+        ${addCatRow('new-etc-cat','addEtcCat')}</div>
+      <div><label class="form-label">단위</label><select class="form-control" id="et-unit"><option>EA</option><option>Box</option><option>Roll</option><option>개</option></select></div>
+    </div>
+    <div class="form-group"><label class="form-label">초기 수량</label><input class="form-control" type="number" id="et-qty" value="1" min="0"/></div>
+    <button class="submit-btn" onclick="submitNewEtc()">등록</button>
+  `);return;}
+  if(!item)return;
+  openModal(item.n,item.cat,`<div class="action-tabs"><button class="action-tab active" id="tab-info" onclick="etcTab('info')">정보</button><button class="action-tab" id="tab-edit" onclick="etcTab('edit')">수정</button><button class="action-tab" id="tab-io" onclick="etcTab('io')">입출고</button></div><div id="etc-modal-content"></div>`);
+  etcIODir='add';etcTab('info');
+}
+function etcTab(tab){
+  document.querySelectorAll('.action-tab').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('tab-'+tab);if(btn)btn.classList.add('active');
+  const item=etcItems.find(x=>x.id===curEtcId);if(!item)return;
+  const st=getStatus(item.qty),col=dotColor(st),el=document.getElementById('etc-modal-content');
+  if(tab==='info'){el.innerHTML=`<div class="info-block"><div class="info-block-row"><span class="info-block-label">현재 수량</span><span class="info-block-val" style="color:${col};">${item.qty} ${item.unit}</span></div><div class="info-block-row"><span class="info-block-label">카테고리</span><span class="info-block-val">${item.cat}</span></div><div class="info-block-row"><span class="info-block-label">상태</span><span class="info-block-val">${st==='ok'?'정상':st==='low'?'부족':'주의'}</span></div></div>`;}
+  else if(tab==='edit'){el.innerHTML=`
+    <div class="form-group"><label class="form-label">소모품명</label><input class="form-control" id="ee-name" value="${escH(item.n)}"/></div>
+    <div class="form-row" style="margin-bottom:12px;">
+      <div><label class="form-label">카테고리</label>
+        <select class="form-control" id="ee-cat">${catOpts(etcCatList(),item.cat)}</select>
+        ${addCatRow('edit-etc-cat','addEtcCat')}
+      </div>
+      <div><label class="form-label">단위</label><select class="form-control" id="ee-unit">${['EA','Box','Roll','개'].map(u=>`<option${item.unit===u?' selected':''}>${u}</option>`).join('')}</select></div>
+    </div>
+    <div class="form-group"><label class="form-label">수량</label><input class="form-control" type="number" id="ee-qty" value="${item.qty}" min="0"/></div>
+    <button class="submit-btn" onclick="submitEditEtc()">변경 저장</button>
+  `;}
+  else{el.innerHTML=`
+    <div class="info-block"><div class="info-block-row"><span class="info-block-label">현재 수량</span><span class="info-block-val" style="color:${col};">${item.qty} ${item.unit}</span></div></div>
+    <div class="seg-wrap">
+      <button id="eseg-in" class="seg-btn in active" onclick="setEtcIO('add')">입고 (IN)</button>
+      <button id="eseg-out" class="seg-btn out" onclick="setEtcIO('use')">출고 (OUT)</button>
+    </div>
+    <div class="form-group"><label class="form-label">수량</label><div class="qty-ctrl"><button class="qty-btn" onclick="adjEtcQ(-1)">−</button><span class="qty-display" id="etc-qdisp">1</span><button class="qty-btn" onclick="adjEtcQ(1)">+</button><input type="hidden" id="etc-qval" value="1"/></div></div>
+    <div class="form-group"><label class="form-label">담당자</label><select class="form-control" id="etc-handler">${memberOpts('')}</select></div>
+    <div class="form-group"><label class="form-label">메모</label><textarea class="form-control" id="etc-memo" rows="2" style="resize:none;" placeholder="비고..."></textarea></div>
+    <button class="submit-btn" id="eio-btn" onclick="submitEtc()">입고 저장</button>
+  `;}
+}
+function setEtcIO(dir){
+  etcIODir=dir;
+  document.getElementById('eseg-in').classList.toggle('active',dir==='add');
+  document.getElementById('eseg-out').classList.toggle('active',dir==='use');
+  const btn=document.getElementById('eio-btn');if(btn)btn.textContent=dir==='add'?'입고 저장':'출고 저장';
+}
+function submitEtc(){
+  const item=etcItems.find(x=>x.id===curEtcId);if(!item)return;
+  const qty=parseInt(document.getElementById('etc-qval').value)||1,handler=document.getElementById('etc-handler').value||'미지정',memo=document.getElementById('etc-memo').value;
+  if(etcIODir==='add')item.qty+=qty;else item.qty=Math.max(0,item.qty-qty);
+  addLog(item.n,etcIODir,qty+' '+item.unit,handler,memo);closeModal();renderAll();showToast(`${item.n} ${etcIODir==='add'?'입고':'출고'} ${qty}${item.unit}`,etcIODir==='use'?'error':'success');
+}
+function submitEditEtc(){
+  const item=etcItems.find(x=>x.id===curEtcId);if(!item)return;
+  item.n=document.getElementById('ee-name').value.trim()||item.n;item.cat=document.getElementById('ee-cat').value;item.unit=document.getElementById('ee-unit').value;item.qty=parseInt(document.getElementById('ee-qty').value)||0;
+  closeModal();renderAll();showToast('소모품 정보가 수정되었습니다','success');
+}
+function submitNewEtc(){
+  const name=document.getElementById('et-name').value.trim();if(!name){showToast('소모품명을 입력하세요','error');return;}
+  const newId=etcItems.length?Math.max(...etcItems.map(i=>i.id))+1:1;
+  etcItems.push({id:newId,n:name,cat:document.getElementById('et-cat').value,qty:parseInt(document.getElementById('et-qty').value)||0,unit:document.getElementById('et-unit').value});
+  fbSaveConsItem(curGenericCatId, items[items.length-1]);
+  closeModal();renderAll();showToast(`'${name}' 등록 완료`,'success');
+}
+
+window.addEventListener('offline',()=>document.getElementById('offline-banner').classList.add('show'));
+window.addEventListener('online',()=>document.getElementById('offline-banner').classList.remove('show'));
+
+/* ══════════════════════════════════════════
+   Firebase Firestore 연동
+   컬렉션:
+     inventory/chemicals     — 약품
+     inventory/ci_equipment  — CI 장비 (parts 포함)
+     inventory/consumable_cats — 소모품 카테고리
+     inventory/consumable_items — 소모품 아이템
+     inventory/logs          — 입출고 기록
+══════════════════════════════════════════ */
+let db = null;
+let fbFns = null;
+let fbReady = false;
+let unsubscribers = [];
+
+function getDb(){ return window._db; }
+function getFb(){ return window._fbFns; }
+
+/* ── 오프라인 배너 제어 ── */
+function setBanner(msg, color){
+  const el = document.getElementById('offline-banner');
+  if(!el) return;
+  el.textContent = msg;
+  el.style.background = color === 'green' ? '#dcfce7' : color === 'red' ? '#fee2e2' : '#fef3c7';
+  el.style.color = color === 'green' ? '#15803d' : color === 'red' ? '#dc2626' : '#d97706';
+  el.style.borderBottomColor = color === 'green' ? 'rgba(21,128,61,.3)' : color === 'red' ? 'rgba(220,38,38,.3)' : 'rgba(217,119,6,.3)';
+  el.classList.add('show');
+}
+function hideBanner(){ document.getElementById('offline-banner')?.classList.remove('show'); }
+
+/* ── Firestore 실시간 리스너 등록 ── */
+function attachListeners(){
+  const db = getDb();
+  const { collection, onSnapshot, query, orderBy } = getFb();
+  if(!db){ console.warn('DB not ready'); return; }
+
+  // 기존 리스너 해제
+  unsubscribers.forEach(u => u());
+  unsubscribers = [];
+
+  setBanner('Firestore 연결 중...', 'amber');
+
+  // ── 약품 ──
+  unsubscribers.push(onSnapshot(collection(db,'inventory_chemicals'), snap => {
+    if(!snap.empty){
+      chemicals.length = 0;
+      snap.forEach(d => chemicals.push({ id: d.id, ...d.data() }));
+    }
+    if(curL1==='chem') renderChemList();
+    updateBadge();
+  }, err => console.error('chemicals:', err)));
+
+  // ── CI 장비 ──
+  unsubscribers.push(onSnapshot(collection(db,'inventory_ci'), snap => {
+    if(!snap.empty){
+      ciEquip.length = 0;
+      snap.forEach(d => ciEquip.push({ ...d.data(), _docId: d.id }));
+      ciEquip.sort((a,b) => (a.order||0)-(b.order||0));
+    }
+    if(curL1==='consumable' && curL2==='ci') renderConsCatSection();
+    updateBadge();
+  }, err => console.error('ci:', err)));
+
+  // ── 소모품 카테고리 ──
+  unsubscribers.push(onSnapshot(collection(db,'inventory_consumable_cats'), snap => {
+    customConsCats = [];
+    snap.forEach(d => {
+      const data = d.data();
+      if(data.canDelete) customConsCats.push({ id: d.id, ...data });
+    });
+    if(curL1==='consumable') renderL2Nav();
+  }, err => console.error('cats:', err)));
+
+  // ── 소모품 아이템 ──
+  unsubscribers.push(onSnapshot(collection(db,'inventory_consumable_items'), snap => {
+    // catId별로 재구성
+    const newItems = {};
+    BUILTIN_CONS_CATS.forEach(c => { newItems[c.id] = []; });
+    customConsCats.forEach(c => { newItems[c.id] = []; });
+    snap.forEach(d => {
+      const data = { _docId: d.id, ...d.data() };
+      if(!newItems[data.catId]) newItems[data.catId] = [];
+      newItems[data.catId].push(data);
+    });
+    // 기존 consCatItems 업데이트 (ci 제외)
+    Object.keys(newItems).forEach(k => { if(k!=='ci') consCatItems[k] = newItems[k]; });
+    if(curL1==='consumable' && curL2!=='ci') renderConsCatSection();
+    updateBadge();
+  }, err => console.error('items:', err)));
+
+  // ── 로그 ──
+  unsubscribers.push(onSnapshot(query(collection(db,'inventory_logs'), orderBy('createdAt','desc')), snap => {
+    logs.length = 0;
+    snap.forEach(d => {
+      const data = d.data();
+      logs.push({
+        _docId: d.id,
+        item: data.item, action: data.action, qty: data.qty,
+        handler: data.handler, memo: data.memo || '',
+        time: data.time, isoDate: data.isoDate || ''
+      });
+    });
+    if(curL1==='log') renderLogList();
+    updateBadge();
+  }, err => console.error('logs:', err)));
+
+  hideBanner();
+  setBanner('Firestore 실시간 연결됨', 'green');
+  setTimeout(hideBanner, 2000);
+}
+
+/* ── 초기 데이터 Firestore 업로드 (최초 1회) ── */
+async function uploadInitialData(){
+  const db = getDb();
+  const { collection, doc, setDoc, writeBatch, serverTimestamp } = getFb();
+  if(!db) return;
+
+  setBanner('초기 데이터 업로드 중... (최초 1회)', 'amber');
+
+  try {
+    // 약품
+    for(const c of chemicals){
+      const docId = 'chem_' + c.id;
+      await setDoc(doc(db,'inventory_chemicals',docId), {
+        id: c.id, name: c.name, handler: c.handler, purpose: c.purpose,
+        qty: c.qty, cat: c.cat, purchased: c.purchased, opened: c.opened,
+        disposed: c.disposed, msds: c.msds || '', msdsFullText: c.msdsFullText || ''
+      });
+    }
+    console.log('✓ 약품 업로드 완료');
+
+    // CI 장비
+    for(let i=0; i<ciEquip.length; i++){
+      const e = ciEquip[i];
+      await setDoc(doc(db,'inventory_ci','ci_'+e.id), {
+        id: e.id, name: e.name, lamp: e.lamp, order: i,
+        parts: e.parts.map(p => ({
+          n:p.n, need:p.need, have:p.have, price:p.price, code:p.code, serial:p.serial||'-'
+        }))
+      });
+    }
+    console.log('✓ CI 장비 업로드 완료');
+
+    // 소모품 아이템 (bw, etc)
+    const allItems = [
+      ...bwItems.map(i => ({...i, catId:'bw'})),
+      ...etcItems.map(i => ({...i, catId:'etc'})),
+    ];
+    for(const item of allItems){
+      await setDoc(doc(db,'inventory_consumable_items','item_'+item.catId+'_'+item.id), {
+        catId: item.catId, n: item.n, cat: item.cat, qty: item.qty, unit: item.unit
+      });
+    }
+    console.log('✓ 소모품 업로드 완료');
+
+    hideBanner();
+    showToast('초기 데이터 업로드 완료!', 'success');
+  } catch(err){
+    console.error('업로드 실패:', err);
+    setBanner('업로드 실패: ' + err.message, 'red');
+  }
+}
+
+/* ── addLog override: Firestore에도 기록 ── */
+const _origAddLog = addLog;
+window.addLog = function(item, action, qty, handler, memo){
+  _origAddLog(item, action, qty, handler, memo);
+  const db2 = getDb();
+  const fb2 = getFb();
+  if(!db2 || !fb2) return;
+  const now = new Date();
+  fb2.addDoc(fb2.collection(db2,'inventory_logs'), {
+    item, action, qty, handler, memo: memo||'',
+    time: `${now.getMonth()+1}/${now.getDate()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`,
+    isoDate: now.toISOString().slice(0,10),
+    createdAt: fb2.serverTimestamp()
+  }).catch(err => console.error('log write:', err));
+};
+/* addLog 재할당 */
+window.addLog = window.addLog; // ensure global
+
+/* ── deleteLog override ── */
+const _origDeleteLog = deleteLog;
+window.deleteLog = function(idx){
+  const log = logs[idx];
+  if(!log) return;
+  if(!confirm('이 기록을 삭제하시겠습니까?')) return;
+  const db2 = getDb(); const fb2 = getFb();
+  if(db2 && fb2 && log._docId){
+    fb2.deleteDoc(fb2.doc(db2,'inventory_logs',log._docId)).catch(err=>console.error('log delete:',err));
+  }
+  logs.splice(idx,1);
+  renderLogList(); updateBadge();
+  showToast('기록이 삭제되었습니다','success');
+};
+
+/* ── 약품 저장 helper ── */
+async function fbSaveChem(c){
+  const db2=getDb();const fb2=getFb();if(!db2||!fb2)return;
+  const docId='chem_'+c.id;
+  await fb2.setDoc(fb2.doc(db2,'inventory_chemicals',docId),{
+    id:c.id,name:c.name,handler:c.handler,purpose:c.purpose,
+    qty:c.qty,cat:c.cat,purchased:c.purchased,opened:c.opened,
+    disposed:c.disposed,msds:c.msds||'',msdsFullText:c.msdsFullText||''
+  }).catch(err=>console.error('saveChem:',err));
+}
+
+/* ── CI 장비 저장 helper ── */
+async function fbSaveCI(e){
+  const db2=getDb();const fb2=getFb();if(!db2||!fb2)return;
+  await fb2.setDoc(fb2.doc(db2,'inventory_ci','ci_'+e.id),{
+    id:e.id,name:e.name,lamp:e.lamp,order:e.id,
+    parts:e.parts.map(p=>({n:p.n,need:p.need,have:p.have,price:p.price,code:p.code,serial:p.serial||'-'}))
+  }).catch(err=>console.error('saveCI:',err));
+}
+
+/* ── 소모품 아이템 저장 helper ── */
+async function fbSaveConsItem(catId, item){
+  const db2=getDb();const fb2=getFb();if(!db2||!fb2)return;
+  const docId = item._docId || ('item_'+catId+'_'+item.id+'_'+Date.now());
+  item._docId = docId;
+  await fb2.setDoc(fb2.doc(db2,'inventory_consumable_items',docId),{
+    catId, n:item.n, cat:item.cat, qty:item.qty, unit:item.unit
+  }).catch(err=>console.error('saveItem:',err));
+}
+
+async function fbDeleteConsItem(item){
+  const db2=getDb();const fb2=getFb();if(!db2||!fb2||!item._docId)return;
+  await fb2.deleteDoc(fb2.doc(db2,'inventory_consumable_items',item._docId)).catch(err=>console.error('deleteItem:',err));
+}
+
+/* ── 커스텀 카테고리 저장 helper ── */
+async function fbSaveConsCat(cat){
+  const db2=getDb();const fb2=getFb();if(!db2||!fb2)return;
+  await fb2.setDoc(fb2.doc(db2,'inventory_consumable_cats',cat.id),{
+    label:cat.label, type:cat.type, canDelete:cat.canDelete
+  }).catch(err=>console.error('saveCat:',err));
+}
+async function fbDeleteConsCat(catId){
+  const db2=getDb();const fb2=getFb();if(!db2||!fb2)return;
+  await fb2.deleteDoc(fb2.doc(db2,'inventory_consumable_cats',catId)).catch(err=>console.error('deleteCat:',err));
+}
+
+/* ── Firebase 준비 완료 시 초기화 ── */
+window.addEventListener('firebase-ready', async () => {
+  fbReady = true;
+  console.log('Firebase ready');
+
+  const db2 = getDb();
+  const fb2 = getFb();
+
+  // Firestore에 데이터가 있는지 확인
+  try {
+    const { collection, getDocs } = { ...fb2, getDocs: (await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js')).getDocs };
+    const snap = await getDocs(collection(db2, 'inventory_chemicals'));
+    if(snap.empty){
+      // 최초 실행: 로컬 데이터 업로드
+      console.log('첫 실행 - 초기 데이터 업로드');
+      await uploadInitialData();
+    }
+  } catch(e){
+    console.warn('초기 확인 실패, 로컬 모드:', e);
+  }
+
+  // 실시간 리스너 연결
+  attachListeners();
+});
+
+/* ── 로컬 모드 초기화 (Firebase 없을 때 fallback) ── */
+initConsCatItems();
+renderChemList();
+updateBadge();
+
+/* ── 5초 후에도 Firebase 미연결이면 로컬 모드 알림 ── */
+setTimeout(() => {
+  if(!fbReady){
+    setBanner('오프라인 모드 — 로컬 데이터로 실행 중 (Firebase 미연결)', 'amber');
+  }
+}, 5000);
+</script>
+</body>
+</html>
