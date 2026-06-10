@@ -730,6 +730,8 @@ textarea { resize: vertical; }
 .tag-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 8px 6px 12px; background: var(--card-2); border: 1px solid var(--line); border-radius: 999px; font-size: 12.5px; font-weight: 600; }
 .tag-chip button { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); background: var(--card); border: 1px solid var(--line); }
 .tag-chip button:hover { color: var(--crit); border-color: #ecc8c2; }
+.tag-add { padding: 7px 13px; border-radius: 999px; border: 1px dashed var(--line-2); background: var(--card); color: var(--action); font-weight: 700; font-size: 12.5px; }
+.tag-add:hover { border-color: var(--action); background: var(--action-soft); }
 
 /* ---------------------------------------------------------------- 회원 관리 */
 .member-list { display: grid; gap: 7px; margin-bottom: 6px; }

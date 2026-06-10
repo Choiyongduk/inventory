@@ -178,6 +178,7 @@ export default function App() {
     () => settings.chemCats || [...CHEMICAL_CATEGORIES, ...(settings.customChemCats || [])],
     [settings.chemCats, settings.customChemCats],
   );
+  const teamMembers = useMemo(() => settings.team || TEAM_MEMBERS, [settings.team]);
 
   const inventory = useMemo(
     () => normalizeInventory({ chemicals, consumables, ciEquip, customCats: categories, settings }),
@@ -204,6 +205,12 @@ export default function App() {
   function deleteCategory(id) {
     return saveTeamSettings({ consumableCats: categories.filter((c) => c.id !== id) });
   }
+
+  // 팀원 명단(입사/퇴사 반영) — 의장_ 접두사 자동 부여
+  const withPrefix = (n) => (n.startsWith('의장_') ? n : `의장_${n}`);
+  async function addTeamMember(name) { const v = withPrefix(name); await saveTeamSettings({ team: [...teamMembers, v] }); return v; }
+  function renameTeamMember(oldV, newV) { return saveTeamSettings({ team: teamMembers.map((m) => (m === oldV ? withPrefix(newV) : m)) }); }
+  function removeTeamMember(name) { return saveTeamSettings({ team: teamMembers.filter((m) => m !== name) }); }
 
   async function addEquipment(name) {
     const nextId = Math.max(0, ...ciEquip.map((e) => Number(e.id || 0))) + 1;
@@ -358,7 +365,7 @@ export default function App() {
   if (!authUser) return <AuthGate />;
   if (member === undefined) return <AuthLoading />;
   if (!member || !member.name) {
-    return <NameGate takenNames={allMembers.filter((m) => m.uid !== authUser.uid).map((m) => m.name)} onSubmit={submitName} onSignOut={() => signOutUser()} />;
+    return <NameGate roster={teamMembers} takenNames={allMembers.filter((m) => m.uid !== authUser.uid).map((m) => m.name)} onSubmit={submitName} onSignOut={() => signOutUser()} />;
   }
   if (!access) {
     return <AccessScreen email={authUser.email} name={member.name} rejected={member.status === 'rejected'} onSignOut={() => signOutUser()} />;
@@ -444,10 +451,11 @@ export default function App() {
                   onRejectMember={(uid) => setMemberStatus(uid, 'rejected')}
                   onRemoveMember={(uid) => { if (window.confirm('이 회원의 접근을 완전히 삭제할까요?')) removeMember(uid); }}
                   onRenameMember={(uid, name) => setMemberName(uid, name)}
-                  catItems={categories.filter((c) => c.type !== 'equipment')} zoneItems={allZones} chemCatItems={allChemCats}
-                  onRenameCategory={renameCategory} onDeleteCategory={deleteCategory}
-                  onRenameZone={renameZone} onDeleteZone={deleteZone}
-                  onRenameChemCat={renameChemCat} onDeleteChemCat={deleteChemCat}
+                  catItems={categories.filter((c) => c.type !== 'equipment')} zoneItems={allZones} chemCatItems={allChemCats} teamItems={teamMembers}
+                  onAddCategory={addCategory} onRenameCategory={renameCategory} onDeleteCategory={deleteCategory}
+                  onAddZone={addZone} onRenameZone={renameZone} onDeleteZone={deleteZone}
+                  onAddChemCat={addChemCat} onRenameChemCat={renameChemCat} onDeleteChemCat={deleteChemCat}
+                  onAddTeamMember={addTeamMember} onRenameTeamMember={renameTeamMember} onRemoveTeamMember={removeTeamMember}
                   onSaveSettings={saveTeamSettings}
                   onExportInventory={handleExportInventory} onExportLogs={handleExportLogs}
                   onSignOut={() => signOutUser()}
@@ -466,6 +474,7 @@ export default function App() {
           item={selected}
           logs={logs}
           categories={categories}
+          teamMembers={teamMembers}
           zones={allZones}
           chemCats={allChemCats}
           onAddZone={addZone}
@@ -484,7 +493,7 @@ export default function App() {
       {newItemOpen && (
         <NewItemModal
           currentUser={currentUser} categories={categories} equipmentList={ciEquip}
-          zones={allZones} chemCats={allChemCats}
+          teamMembers={teamMembers} zones={allZones} chemCats={allChemCats}
           onAddZone={addZone} onAddChemCat={addChemCat} onAddCategory={addCategory} onAddEquipment={addEquipment}
           onClose={() => setNewItemOpen(false)} onSubmit={handleCreateItem}
         />
@@ -566,7 +575,7 @@ function AccessScreen({ email, name, rejected = false, onSignOut }) {
   );
 }
 
-function NameGate({ takenNames = [], onSubmit, onSignOut }) {
+function NameGate({ roster = TEAM_MEMBERS, takenNames = [], onSubmit, onSignOut }) {
   const [busy, setBusy] = useState(false);
   async function pick(m) {
     if (busy) return;
@@ -581,7 +590,7 @@ function NameGate({ takenNames = [], onSubmit, onSignOut }) {
         <h1>본인 이름 선택</h1>
         <p>입출고 기록에 표시될 본인 이름을 선택하세요. 한 번 선택하면 계정에 고정되며, 변경은 관리자에게 요청해야 합니다.</p>
         <div className="member-grid">
-          {TEAM_MEMBERS.map((m) => {
+          {roster.map((m) => {
             const taken = takenNames.includes(m);
             return (
               <button key={m} disabled={taken || busy} onClick={() => pick(m)}>
@@ -1062,7 +1071,7 @@ function LabelsView({ inventory, labelKey, onChangeLabelKey }) {
 }
 
 /* ------------------------------------------------------------------ settings */
-function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [], onApproveMember, onRejectMember, onRemoveMember, onRenameMember, catItems = [], zoneItems = [], chemCatItems = [], onRenameCategory, onDeleteCategory, onRenameZone, onDeleteZone, onRenameChemCat, onDeleteChemCat, onSaveSettings, onExportInventory, onExportLogs, onSignOut }) {
+function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [], onApproveMember, onRejectMember, onRemoveMember, onRenameMember, catItems = [], zoneItems = [], chemCatItems = [], teamItems = [], onAddCategory, onRenameCategory, onDeleteCategory, onAddZone, onRenameZone, onDeleteZone, onAddChemCat, onRenameChemCat, onDeleteChemCat, onAddTeamMember, onRenameTeamMember, onRemoveTeamMember, onSaveSettings, onExportInventory, onExportLogs, onSignOut }) {
   const reassign = (m) => {
     const next = window.prompt('지정할 이름(예: 의장_이진원)', m.name || '');
     if (next && next.trim()) onRenameMember(m.uid, next.trim());
@@ -1150,12 +1159,25 @@ function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [],
         <button className="btn primary full" onClick={() => onSaveSettings(draft)}>저장</button>
       </div>
 
+      {isAdmin && (
+        <div className="card">
+          <div className="card-title">팀원 관리 (관리자)</div>
+          <p className="vsub" style={{ marginTop: 0 }}>입사 시 추가, 퇴사 시 삭제하세요. 명단은 본인 이름 선택·취급자에 사용됩니다.</p>
+          <TagManager
+            label="팀원 명단"
+            items={teamItems.map((m) => ({ key: m, label: m.replace(/^의장_/, '') }))}
+            onAdd={onAddTeamMember} onRename={onRenameTeamMember} onDelete={onRemoveTeamMember}
+            addText="+ 팀원 추가" empty="팀원 없음"
+          />
+        </div>
+      )}
+
       <div className="card">
         <div className="card-title">분류·시험실 관리</div>
-        <p className="vsub" style={{ marginTop: 0 }}>이름 변경(✎)·삭제(×)가 모두 가능합니다. 기본 항목도 편집됩니다.</p>
-        <TagManager label="소모품 카테고리" items={catItems.map((c) => ({ key: c.id, label: c.label }))} onRename={onRenameCategory} onDelete={onDeleteCategory} empty="카테고리 없음" />
-        <TagManager label="시험실" items={zoneItems.map((z) => ({ key: z, label: z }))} onRename={onRenameZone} onDelete={onDeleteZone} empty="시험실 없음" />
-        <TagManager label="약품 분류" items={chemCatItems.map((c) => ({ key: c, label: c }))} onRename={onRenameChemCat} onDelete={onDeleteChemCat} empty="분류 없음" />
+        <p className="vsub" style={{ marginTop: 0 }}>추가(+)·이름 변경(✎)·삭제(×)가 모두 가능합니다. 기본 항목도 편집됩니다.</p>
+        <TagManager label="소모품 카테고리" items={catItems.map((c) => ({ key: c.id, label: c.label }))} onAdd={onAddCategory} onRename={onRenameCategory} onDelete={onDeleteCategory} empty="카테고리 없음" />
+        <TagManager label="시험실" items={zoneItems.map((z) => ({ key: z, label: z }))} onAdd={onAddZone} onRename={onRenameZone} onDelete={onDeleteZone} empty="시험실 없음" />
+        <TagManager label="약품 분류" items={chemCatItems.map((c) => ({ key: c, label: c }))} onAdd={onAddChemCat} onRename={onRenameChemCat} onDelete={onDeleteChemCat} empty="분류 없음" />
       </div>
 
       <div className="card">
@@ -1179,31 +1201,35 @@ function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [],
   );
 }
 
-function TagManager({ label, items, onRename, onDelete, empty }) {
+function TagManager({ label, items, onRename, onDelete, onAdd, addText = '+ 추가', empty }) {
   function rename(it) {
     const next = window.prompt('새 이름을 입력하세요', it.label);
     if (next && next.trim() && next.trim() !== it.label) onRename(it.key, next.trim());
   }
+  function add() {
+    const v = window.prompt('새 항목 이름을 입력하세요');
+    if (v && v.trim()) onAdd(v.trim());
+  }
   return (
     <div className="tagmgr">
       <div className="label" style={{ marginTop: 6 }}>{label}</div>
-      {items.length ? (
-        <div className="tag-chips">
-          {items.map((it) => (
-            <span key={it.key} className="tag-chip">
-              {it.label}
-              {onRename && <button onClick={() => rename(it)} aria-label="이름 변경"><Pencil size={12} /></button>}
-              <button onClick={() => { if (window.confirm(`'${it.label}' 항목을 삭제할까요?`)) onDelete(it.key); }} aria-label="삭제"><X size={13} /></button>
-            </span>
-          ))}
-        </div>
-      ) : <p className="vsub" style={{ margin: '0 0 4px' }}>{empty}</p>}
+      <div className="tag-chips">
+        {items.map((it) => (
+          <span key={it.key} className="tag-chip">
+            {it.label}
+            {onRename && <button onClick={() => rename(it)} aria-label="이름 변경"><Pencil size={12} /></button>}
+            <button onClick={() => { if (window.confirm(`'${it.label}' 항목을 삭제할까요?`)) onDelete(it.key); }} aria-label="삭제"><X size={13} /></button>
+          </span>
+        ))}
+        {onAdd && <button className="tag-add" onClick={add}>{addText}</button>}
+        {!items.length && !onAdd && <p className="vsub" style={{ margin: 0 }}>{empty}</p>}
+      </div>
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ quick-log */
-function QuickLogSheet({ item, logs, categories, zones, chemCats, onAddZone, onAddChemCat, onAddCategory, isFav, onToggleFav, onClose, onMove, onSave, onDelete, onOpenLabel }) {
+function QuickLogSheet({ item, logs, categories, teamMembers, zones, chemCats, onAddZone, onAddChemCat, onAddCategory, isFav, onToggleFav, onClose, onMove, onSave, onDelete, onOpenLabel }) {
   const [mode, setMode] = useState(item.qty <= 0 ? 'in' : 'out');
   const step = stepFor(item.unit);
   const [amount, setAmount] = useState(step);
@@ -1300,7 +1326,7 @@ function QuickLogSheet({ item, logs, categories, zones, chemCats, onAddZone, onA
                 </>
               ) : (
                 <div className="edit-block">
-                  {edit && item.type === 'chemical' && <ChemicalEditor edit={edit} set={(f, v) => setEdit((c) => ({ ...c, [f]: v }))} chemCats={chemCats} zones={zones} onAddChemCat={onAddChemCat} onAddZone={onAddZone} />}
+                  {edit && item.type === 'chemical' && <ChemicalEditor edit={edit} set={(f, v) => setEdit((c) => ({ ...c, [f]: v }))} teamMembers={teamMembers} chemCats={chemCats} zones={zones} onAddChemCat={onAddChemCat} onAddZone={onAddZone} />}
                   {edit && item.type === 'consumable' && <ConsumableEditor edit={edit} set={(f, v) => setEdit((c) => ({ ...c, [f]: v }))} categories={categories} onAddCategory={onAddCategory} />}
                   {edit && item.type === 'equipment' && <EquipmentEditor edit={edit} set={(f, v) => setEdit((c) => ({ ...c, [f]: v }))} />}
                   <div className="dbtns">
@@ -1370,13 +1396,13 @@ function disposalText(item) {
 }
 
 /* ------------------------------------------------------------------ editors */
-function ChemicalEditor({ edit, set, chemCats = CHEMICAL_CATEGORIES, zones = STORAGE_ZONES, onAddChemCat, onAddZone }) {
+function ChemicalEditor({ edit, set, teamMembers = TEAM_MEMBERS, chemCats = CHEMICAL_CATEGORIES, zones = STORAGE_ZONES, onAddChemCat, onAddZone }) {
   return (
     <div className="form-grid">
       <label><span>약품명</span><input value={edit.name || ''} onChange={(e) => set('name', e.target.value)} /></label>
       <div className="grid-2">
         <label><span>분류</span><SelectAddable value={edit.cat || '기타'} onChange={(v) => set('cat', v)} options={chemCats} onAdd={onAddChemCat} addLabel="+ 새 분류 추가" /></label>
-        <label><span>취급자</span><select value={edit.handler || '-'} onChange={(e) => set('handler', e.target.value)}><option>-</option>{TEAM_MEMBERS.map((m) => <option key={m}>{m}</option>)}</select></label>
+        <label><span>취급자</span><select value={edit.handler || '-'} onChange={(e) => set('handler', e.target.value)}><option>-</option>{teamMembers.map((m) => <option key={m}>{m}</option>)}</select></label>
       </div>
       <div className="grid-2">
         <label><span>수량</span><input value={edit.qty || ''} onChange={(e) => set('qty', e.target.value)} /></label>
@@ -1428,7 +1454,7 @@ function EquipmentEditor({ edit, set }) {
 }
 
 /* ------------------------------------------------------------------ new item */
-function NewItemModal({ currentUser, categories, equipmentList = [], zones = [], chemCats = [], onAddZone, onAddChemCat, onAddCategory, onAddEquipment, onClose, onSubmit }) {
+function NewItemModal({ currentUser, categories, equipmentList = [], teamMembers = TEAM_MEMBERS, zones = [], chemCats = [], onAddZone, onAddChemCat, onAddCategory, onAddEquipment, onClose, onSubmit }) {
   const [form, setForm] = useState({
     type: 'chemical', name: '', qty: 1, unit: 'EA', handler: currentUser, cat: '기타',
     catId: 'etc', purchased: todayKey(), opened: '', disposed: '', purpose: '', storageZone: '',
@@ -1492,7 +1518,7 @@ function NewItemModal({ currentUser, categories, equipmentList = [], zones = [],
               <>
                 <div className="grid-2">
                   <label><span>분류</span><SelectAddable value={form.cat} onChange={(v) => set('cat', v)} options={chemCats} onAdd={onAddChemCat} addLabel="+ 새 분류 추가" /></label>
-                  <label><span>취급자</span><select value={form.handler} onChange={(e) => set('handler', e.target.value)}>{TEAM_MEMBERS.map((m) => <option key={m}>{m}</option>)}</select></label>
+                  <label><span>취급자</span><select value={form.handler} onChange={(e) => set('handler', e.target.value)}>{teamMembers.map((m) => <option key={m}>{m}</option>)}</select></label>
                 </div>
                 <div className="grid-2">
                   <label><span>입고일</span><input type="date" value={form.purchased} onChange={(e) => set('purchased', e.target.value)} /></label>
