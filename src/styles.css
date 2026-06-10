@@ -134,10 +134,9 @@ h1, h2, h3 { letter-spacing: -0.025em; }
 .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font-size: 14.5px; }
 .search input::placeholder { color: var(--faint); }
 .filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; }
-.segmented { display: inline-flex; gap: 2px; padding: 3px; background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
-.segmented::-webkit-scrollbar { display: none; }
+.segmented { display: flex; flex-wrap: wrap; gap: 2px; padding: 3px; background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; max-width: 100%; }
 .segmented button {
-  flex: none; border-radius: 7px; padding: 7px 13px; color: var(--muted);
+  flex: 1 1 auto; border-radius: 7px; padding: 7px 10px; color: var(--muted);
   font-weight: 600; font-size: 13px; white-space: nowrap;
   transition: color .14s var(--ease), background .14s var(--ease);
 }
@@ -532,16 +531,23 @@ h1, h2, h3 { letter-spacing: -0.025em; }
 .modal-body { overflow: auto; padding: 14px 18px 18px; display: grid; gap: 14px; }
 
 /* ---------------------------------------------------------------- forms */
-.form-grid { display: grid; gap: 12px; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
-.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 9px; }
-label { display: grid; gap: 6px; }
+.form-grid { display: grid; gap: 12px; min-width: 0; }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; min-width: 0; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 9px; min-width: 0; }
+.grid-2 > *, .grid-3 > * { min-width: 0; }
+label { display: grid; gap: 6px; min-width: 0; }
 label span { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .03em; }
 input, select, textarea {
-  width: 100%; border: 1px solid var(--line-2); border-radius: 10px; background: var(--card);
+  width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box;
+  border: 1px solid var(--line-2); border-radius: 10px; background: var(--card);
   padding: 10px 12px; outline: 0;
   transition: border-color .15s var(--ease), box-shadow .15s var(--ease);
 }
+/* iOS 날짜 입력칸이 고유 너비로 칸을 밀어내지 않도록 정규화 */
+input[type="date"] {
+  -webkit-appearance: none; appearance: none; min-height: 44px; text-align: left;
+}
+input[type="date"]::-webkit-date-and-time-value { text-align: left; }
 input:focus, select:focus, textarea:focus { border-color: var(--action); box-shadow: var(--ring); }
 input::placeholder, textarea::placeholder { color: var(--faint); }
 textarea { resize: vertical; }
