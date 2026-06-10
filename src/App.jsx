@@ -439,7 +439,7 @@ export default function App() {
                 />
               )}
               {activeView === 'ledger' && (
-                <LedgerView inventory={inventory} logs={logs} currentUser={currentUser} onDeleteLog={deleteMovementLog} />
+                <LedgerView inventory={inventory} logs={logs} currentUser={currentUser} onOpen={setSelectedKey} onDeleteLog={deleteMovementLog} />
               )}
               {activeView === 'labels' && (
                 <LabelsView inventory={inventory} labelKey={labelKey} onChangeLabelKey={setLabelKey} />
@@ -943,8 +943,12 @@ function EquipGrid({ groups, query, onPick }) {
 }
 
 /* ------------------------------------------------------------------ ledger */
-function LedgerView({ inventory, logs, currentUser, onDeleteLog }) {
+function LedgerView({ inventory, logs, currentUser, onOpen, onDeleteLog }) {
   const [view, setView] = useState('log'); // 'log' | 'register'
+  const openFromLog = (l) => {
+    const it = inventory.find((x) => x.key === l.itemKey || x.name === l.item);
+    if (it) onOpen(it.key);
+  };
   const [scope, setScope] = useState('me');
   const today = todayKey();
   const filtered = logs.filter((l) => (scope === 'all' ? true : l.handler === currentUser));
@@ -978,6 +982,7 @@ function LedgerView({ inventory, logs, currentUser, onDeleteLog }) {
               <div className="hist">
                 {groups[day].map((l) => (
                   <LogRow key={l._docId || `${l.item}-${l.time}`} log={l}
+                    onOpen={() => openFromLog(l)}
                     canDelete={l.handler === currentUser} onDelete={() => onDeleteLog(l)} />
                 ))}
               </div>
