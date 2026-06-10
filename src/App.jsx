@@ -164,6 +164,13 @@ export default function App() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
 
+  // 시트/모달이 열려 있는 동안 뒤 배경 스크롤 잠금 (스크롤 새어나감 방지)
+  useEffect(() => {
+    const open = !!selectedKey || newItemOpen;
+    document.body.style.overflow = open ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [selectedKey, newItemOpen]);
+
   // 편집 가능한 목록: 설정에 저장된 게 있으면 그걸, 없으면 기본값(+기존 커스텀)을 사용.
   // 한 번 편집하면 전체 목록이 설정에 '실체화'되어 그 뒤로는 기본값까지 수정/삭제 가능.
   const categories = useMemo(
