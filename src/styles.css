@@ -678,6 +678,12 @@ textarea { resize: vertical; }
 .gate-card .member-grid { grid-template-columns: repeat(3, 1fr); }
 .gate-card .member-grid button { justify-content: flex-start; padding: 0 12px; }
 
+.auth-alt { display: flex; justify-content: space-between; gap: 10px; margin-top: 14px; }
+.linkbtn { color: var(--action); font-weight: 650; font-size: 13px; }
+.linkbtn:hover { text-decoration: underline; }
+.auth-divider { display: flex; align-items: center; gap: 10px; margin: 16px 0 12px; color: var(--faint); font-size: 12px; }
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
+
 .only-wide { display: none; }
 
 /* ---------------------------------------------------------------- desktop */

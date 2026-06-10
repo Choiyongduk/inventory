@@ -2,9 +2,12 @@ import { initializeApp } from 'firebase/app';
 import {
   GoogleAuthProvider,
   browserLocalPersistence,
+  createUserWithEmailAndPassword,
   getAuth,
   onAuthStateChanged,
+  sendPasswordResetEmail,
   setPersistence,
+  signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
 } from 'firebase/auth';
@@ -83,6 +86,15 @@ export async function removeMember(uid) {
 }
 export function signInWithGoogle() {
   return signInWithPopup(auth, googleProvider);
+}
+export function signInWithEmail(email, password) {
+  return signInWithEmailAndPassword(auth, email, password);
+}
+export function signUpWithEmail(email, password) {
+  return createUserWithEmailAndPassword(auth, email, password);
+}
+export function sendReset(email) {
+  return sendPasswordResetEmail(auth, email);
 }
 export function signOutUser() {
   return signOut(auth);

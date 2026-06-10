@@ -8,7 +8,8 @@ import {
 import {
   addMovementLog, deleteChemical, deleteConsumableItem, deleteMovementLog,
   removeMember, requestMembership, saveChemical,
-  saveConsumableItem, saveEquipment, saveTeamSettings, setMemberName, setMemberStatus, signInWithGoogle, signOutUser,
+  saveConsumableItem, saveEquipment, saveTeamSettings, sendReset, setMemberName, setMemberStatus,
+  signInWithEmail, signInWithGoogle, signOutUser, signUpWithEmail,
   subscribeInventory, watchAuth, watchMember, watchMembers,
 } from './firebase';
 import {
@@ -524,32 +525,80 @@ function AuthLoading() {
   );
 }
 
+function authMsg(code) {
+  return {
+    'auth/invalid-email': '이메일 형식이 올바르지 않습니다.',
+    'auth/missing-password': '비밀번호를 입력하세요.',
+    'auth/user-not-found': '등록되지 않은 이메일입니다.',
+    'auth/wrong-password': '비밀번호가 일치하지 않습니다.',
+    'auth/invalid-credential': '이메일 또는 비밀번호가 올바르지 않습니다.',
+    'auth/email-already-in-use': '이미 가입된 이메일입니다. 로그인해 주세요.',
+    'auth/weak-password': '비밀번호는 6자 이상이어야 합니다.',
+    'auth/too-many-requests': '시도가 많습니다. 잠시 후 다시 시도해 주세요.',
+    'auth/popup-closed-by-user': '로그인 창이 닫혔습니다. 다시 시도해 주세요.',
+    'auth/unauthorized-domain': '이 도메인이 Firebase에 등록되지 않았습니다. 관리자에게 문의해 주세요.',
+    'auth/operation-not-allowed': '해당 로그인 방식이 비활성화되어 있습니다. 관리자에게 문의해 주세요.',
+  }[code] || `오류가 발생했습니다. (${code || '알 수 없음'})`;
+}
+
 function AuthGate() {
+  const [mode, setMode] = useState('login'); // 'login' | 'signup'
+  const [email, setEmail] = useState('');
+  const [pw, setPw] = useState('');
   const [error, setError] = useState('');
-  async function login() {
-    setError('');
-    try { await signInWithGoogle(); } catch (e) {
-      const code = e?.code || '';
-      const msg = {
-        'auth/popup-closed-by-user': '로그인 창이 닫혔습니다. 다시 시도해 주세요.',
-        'auth/cancelled-popup-request': '로그인 창이 닫혔습니다. 다시 시도해 주세요.',
-        'auth/popup-blocked': '브라우저가 팝업을 차단했습니다. 팝업 허용 후 다시 시도해 주세요.',
-        'auth/unauthorized-domain': '이 도메인이 Firebase에 등록되지 않았습니다. 관리자에게 문의해 주세요.',
-        'auth/operation-not-allowed': '구글 로그인이 비활성화되어 있습니다. 관리자에게 문의해 주세요.',
-      }[code] || `로그인에 실패했습니다. (${code || '알 수 없는 오류'})`;
-      setError(msg);
-    }
+  const [info, setInfo] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e) {
+    e.preventDefault();
+    setError(''); setInfo('');
+    if (!email.trim() || !pw) { setError('이메일과 비밀번호를 입력하세요.'); return; }
+    setBusy(true);
+    try {
+      if (mode === 'signup') await signUpWithEmail(email.trim(), pw);
+      else await signInWithEmail(email.trim(), pw);
+    } catch (err) { setError(authMsg(err?.code)); } finally { setBusy(false); }
   }
+  async function reset() {
+    setError(''); setInfo('');
+    if (!email.trim()) { setError('재설정할 이메일을 먼저 입력하세요.'); return; }
+    try { await sendReset(email.trim()); setInfo('비밀번호 재설정 메일을 보냈습니다. 메일함을 확인하세요.'); }
+    catch (err) { setError(authMsg(err?.code)); }
+  }
+  async function google() {
+    setError(''); setInfo('');
+    try { await signInWithGoogle(); } catch (err) { setError(authMsg(err?.code)); }
+  }
+
   return (
     <div className="gate">
-      <div className="gate-card">
+      <form className="gate-card" onSubmit={submit}>
         <div className="brand-mark large">FITI</div>
         <span className="eyebrow">의장소재팀 재고관리</span>
-        <h1>로그인</h1>
-        <p>승인된 구글 계정으로 로그인하세요. 한 번 로그인하면 다음부터 자동으로 로그인됩니다.</p>
-        <button className="btn primary full" onClick={login}>구글 계정으로 로그인</button>
+        <h1>{mode === 'signup' ? '회원가입' : '로그인'}</h1>
+        <p>{mode === 'signup'
+          ? '이메일과 비밀번호(6자 이상)로 가입하세요. 가입 후 관리자 승인이 필요합니다.'
+          : '가입한 이메일과 비밀번호로 로그인하세요. 한 번 로그인하면 다음부터 자동 로그인됩니다.'}</p>
+        <div className="form-grid" style={{ marginBottom: 14 }}>
+          <label><span>이메일</span><input type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" /></label>
+          <label><span>비밀번호</span><input type="password" autoComplete={mode === 'signup' ? 'new-password' : 'current-password'} value={pw} onChange={(e) => setPw(e.target.value)} placeholder="비밀번호 (6자 이상)" /></label>
+        </div>
+        <button className="btn primary full" type="submit" disabled={busy}>{mode === 'signup' ? '회원가입' : '로그인'}</button>
         {error && <p style={{ color: 'var(--crit)', marginTop: 12 }}>{error}</p>}
-      </div>
+        {info && <p style={{ color: 'var(--ok)', marginTop: 12 }}>{info}</p>}
+        <div className="auth-alt">
+          {mode === 'login' ? (
+            <>
+              <button type="button" className="linkbtn" onClick={() => { setMode('signup'); setError(''); setInfo(''); }}>회원가입</button>
+              <button type="button" className="linkbtn" onClick={reset}>비밀번호 찾기</button>
+            </>
+          ) : (
+            <button type="button" className="linkbtn" onClick={() => { setMode('login'); setError(''); setInfo(''); }}>이미 계정이 있어요 · 로그인</button>
+          )}
+        </div>
+        <div className="auth-divider"><span>또는</span></div>
+        <button type="button" className="btn ghost full" onClick={google}>구글 계정으로 로그인</button>
+      </form>
     </div>
   );
 }
