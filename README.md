@@ -1,48 +1,33 @@
-# FITI 의장소재팀 재고관리
+# FITI 의장소재팀 재고 — "선반"
 
-React + Vite + Firebase Firestore 기반의 의장소재팀 재고관리 콘솔입니다.
+시험자 입장에서 입출고를 빠르게 남기는 데 초점을 둔 React + Vite + Firebase Firestore 앱입니다.
 
-## 핵심 방향
+## 화면
+- **홈**: "오늘 뭐 꺼내요?" — 검색 → 품목 탭 → 하단 시트에서 꺼내기/채우기 → 두 번이면 기록 완료
+- **선반**: 전체 품목(화학물질·소모품·부품), 검색·유형 필터·"확인 필요만"
+- **내 기록**: 내 입출고가 날짜별로. 팀 전체 보기/인쇄
+- **라벨**: 취급 라벨 미리보기 + 92mm 인쇄. QR을 폰으로 찍으면 그 품목 기록 화면이 바로 열림
+- **설정**: 담당자, 폐기 경고 D-day, 저재고 기준, JSON 백업
 
-- 단일 `index.html` 구조를 React/Vite 프로젝트로 전환
-- 기존 Firebase 프로젝트와 Firestore 컬렉션 유지
-- 화학물질, 소모품, CI 장비 부품을 하나의 운영 콘솔에서 통합 관리
-- 세미나 자료의 관리방안 반영: 입고일, 개봉일, 취급자, 사용용도, 취급 라벨, 소모품 대장, 중복 개봉 방지, 보관구역 추적
+## 편의 기능
+- **초성 검색**: "ㅇㅅㅌ" → 아세톤. 일반 검색과 같이 동작
+- **되돌리기**: 기록 직후 토스트에서 6초 안에 한 번에 되돌리기 (수량 복원 + 로그 삭제)
+- **초과 출고 방지**: 남은 양보다 많이 꺼내려 하면 막고, "남은 만큼 전부" 한 탭 제공
+- **자주 쓰는 것 개인화**: 담당자 본인의 기록 기준으로 홈 칩 구성
+- **오프라인 동작**: Firestore 퍼시스턴스 — 연결이 끊겨도 기록이 보관됐다가 자동 동기화
+- **QR 딥링크**: 라벨 QR = `?item=<key>` 링크. 스캔하면 해당 품목 시트 자동 오픈
 
 ## 실행
-
 ```bash
 npm install
 npm run dev
 ```
+빌드: `npm run build && npm run preview` / 배포: `npm run build && firebase deploy`
 
-## 빌드
+## 구조
+- 데이터/계산: `src/lib/inventory.js` (+ 초성 검색)
+- Firestore 연동: `src/firebase.js` (+ 오프라인 퍼시스턴스)
+- 화면: `src/App.jsx`
+- 스타일: `src/styles.css`
 
-```bash
-npm run build
-npm run preview
-```
-
-## Firebase Hosting 배포
-
-```bash
-npm run build
-firebase deploy
-```
-
-## Firestore 컬렉션
-
-- `inventory_chemicals`: 화학물질
-- `inventory_ci`: CI 장비와 부품
-- `inventory_consumable_cats`: 소모품 커스텀 카테고리
-- `inventory_consumable_items`: 소모품 항목
-- `inventory_logs`: 입출고 대장
-- `inventory_settings/team`: 팀 공통 임계치
-
-## 주요 화면
-
-- 대시보드: 긴급/주의 항목, 라벨 관리율, 최근 입출고, 운영 품질 지표
-- 재고: 통합 검색, 유형/상태 필터, 입출고, 정보 수정
-- 대장: 담당자와 입출고 구분별 필터, 인쇄
-- 라벨: 화학물질 취급 라벨과 소모품 관리 라벨 출력
-- 설정: 사용자 선택, 팀 공통 임계치, JSON 백업
+Firestore 컬렉션과 설정 키는 기존과 동일합니다.

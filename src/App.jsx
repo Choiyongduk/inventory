@@ -1,118 +1,102 @@
 import { useEffect, useMemo, useState } from 'react';
+import QRCode from 'qrcode';
 import {
-  AlertTriangle,
-  BarChart3,
-  Bell,
-  Boxes,
-  CalendarClock,
-  CheckCircle2,
-  ClipboardList,
-  Database,
-  Download,
-  FileText,
-  FlaskConical,
-  Home,
-  Layers,
-  Package,
-  PackagePlus,
-  Pencil,
-  Plus,
-  Printer,
-  QrCode,
-  Save,
-  Search,
-  Settings,
-  ShieldCheck,
-  SlidersHorizontal,
-  Tag,
-  Trash2,
-  UserRound,
-  Wifi,
-  WifiOff,
-  X,
+  AlertTriangle, ArrowLeft, ArrowLeftRight, Bell, Boxes, Camera, Check, ChevronDown, ClipboardList,
+  Download, FlaskConical, Home, Layers, Minus, Package, Pencil, Plus, Printer, Search, Settings, Star,
+  Tag, Trash2, UserRound, Wifi, WifiOff, X,
 } from 'lucide-react';
 import {
-  addMovementLog,
-  deleteChemical,
-  deleteConsumableItem,
-  deleteMovementLog,
-  exportCollectionCounts,
-  saveChemical,
-  saveConsumableItem,
-  saveEquipment,
-  saveTeamSettings,
-  subscribeInventory,
+  addMovementLog, deleteChemical, deleteConsumableItem, deleteMovementLog,
+  exportCollectionCounts, saveChemical, saveConsumableCategory, saveConsumableItem,
+  saveEquipment, saveTeamSettings, subscribeInventory,
 } from './firebase';
 import {
-  BUILTIN_CONSUMABLE_CATS,
-  CHEMICAL_CATEGORIES,
-  DEFAULT_SETTINGS,
-  MANAGEMENT_RULES,
-  STORAGE_KEYS,
-  STORAGE_ZONES,
-  TEAM_MEMBERS,
+  BUILTIN_CONSUMABLE_CATS, CHEMICAL_CATEGORIES, DEFAULT_SETTINGS, MANAGEMENT_RULES,
+  STORAGE_KEYS, STORAGE_ZONES, TEAM_MEMBERS,
 } from './data/team';
 import {
-  addDays,
-  applyQuantityDelta,
-  calculateInsights,
-  daysUntil,
-  downloadJson,
-  filterInventory,
-  formatDate,
-  formatNumber,
-  makeMovementPayload,
-  normalizeInventory,
-  quantityText,
-  STATUS_META,
-  todayKey,
+  addDays, applyQuantityDelta, daysUntil, downloadJson, filterInventory, formatDate,
+  formatNumber, makeMovementPayload, normalizeInventory, quantityText, todayKey,
 } from './lib/inventory';
 
 const NAV_ITEMS = [
-  { id: 'dashboard', label: '대시보드', icon: Home },
-  { id: 'inventory', label: '재고', icon: Boxes },
-  { id: 'ledger', label: '대장', icon: ClipboardList },
+  { id: 'home', label: '홈', icon: Home },
+  { id: 'stock', label: '선반', icon: Boxes },
+  { id: 'ledger', label: '내 기록', icon: ClipboardList },
   { id: 'labels', label: '라벨', icon: Tag },
   { id: 'settings', label: '설정', icon: Settings },
 ];
 
-const TYPE_FILTERS = [
-  { id: 'all', label: '전체' },
-  { id: 'chemical', label: '화학물질' },
-  { id: 'consumable', label: '소모품' },
-  { id: 'equipment', label: 'CI 부품' },
-];
+const CAT_LABEL = { chemical: '약품', consumable: '일반 소모품', equipment: '장비 소모품' };
 
-const STATUS_FILTERS = [
-  { id: 'all', label: '전체 상태' },
-  { id: 'critical', label: '긴급' },
-  { id: 'warning', label: '주의' },
-  { id: 'ok', label: '정상' },
-];
+// 상태 표시 문구
+function friendlyPin(item) {
+  if (item.status === 'critical') {
+    if ((item.reason || '').includes('폐기')) return '폐기일 경과';
+    return '재고 없음';
+  }
+  if (item.status === 'warning') {
+    if ((item.reason || '').includes('폐기')) return item.reason; // 폐기 D-21
+    if ((item.reason || '').includes('라벨')) return '라벨 정보 누락';
+    return '재고 부족';
+  }
+  return '사용 가능';
+}
+
+function stepFor(unit) {
+  return ['L', 'kg', 'mL', 'g', 'ml'].includes(unit) ? 0.5 : 1;
+}
+
+// 촬영/선택한 사진을 캔버스로 축소·압축해 dataURL로 변환합니다 (Firestore 1MB 제한 대비).
+function readImageResized(file, maxSize = 1024, quality = 0.7) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function lastActivity(item, logs) {
+  const hit = logs.find((l) => l.itemKey === item.key || l.item === item.name);
+  if (!hit) return item.owner && item.owner !== '-' ? `${item.owner}` : '기록 없음';
+  const verb = hit.action === 'use' ? '출고' : '입고';
+  const who = (hit.handler || '-').replace(/^의장_/, '');
+  return `${who} · ${hit.time || hit.isoDate} ${verb}`;
+}
+
+function itemHistory(item, logs) {
+  return logs.filter((l) => l.itemKey === item.key || l.item === item.name).slice(0, 6);
+}
 
 function useLocalStorageState(key, initialValue) {
   const [value, setValue] = useState(() => {
-    try {
-      return window.localStorage.getItem(key) || initialValue;
-    } catch {
-      return initialValue;
-    }
+    try { return window.localStorage.getItem(key) || initialValue; } catch { return initialValue; }
   });
-
   useEffect(() => {
-    try {
-      if (value) window.localStorage.setItem(key, value);
-    } catch {
-      // localStorage can be disabled in some embedded browsers.
-    }
+    try { if (value) window.localStorage.setItem(key, value); } catch { /* noop */ }
   }, [key, value]);
-
   return [value, setValue];
 }
 
 export default function App() {
   const [currentUser, setCurrentUser] = useLocalStorageState(STORAGE_KEYS.currentUser, '');
-  const [activeView, setActiveView] = useLocalStorageState(STORAGE_KEYS.viewMode, 'dashboard');
+  const [activeView, setActiveView] = useLocalStorageState(STORAGE_KEYS.viewMode, 'home');
+  const [favRaw, setFavRaw] = useLocalStorageState(STORAGE_KEYS.favorites, '[]');
   const [chemicals, setChemicals] = useState([]);
   const [ciEquip, setCiEquip] = useState([]);
   const [consumables, setConsumables] = useState([]);
@@ -122,304 +106,322 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [online, setOnline] = useState(() => navigator.onLine);
-  const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedKey, setSelectedKey] = useState('');
+  const [listMode, setListMode] = useState('all');
   const [newItemOpen, setNewItemOpen] = useState(false);
   const [labelKey, setLabelKey] = useState('');
+  const [stockAttention, setStockAttention] = useState(false);
+  const [toast, setToast] = useState(null); // { msg, undo? }
+  const [deepLinked, setDeepLinked] = useState(false);
 
   useEffect(() => {
     const cleanup = subscribeInventory({
-      onChemicals: (rows) => {
-        setChemicals(rows);
-        setLoading(false);
-      },
+      onChemicals: (rows) => { setChemicals(rows); setLoading(false); },
       onCi: (rows) => setCiEquip(rows),
       onConsumables: (rows) => setConsumables(rows),
       onCats: (rows) => setCustomCats(rows),
       onLogs: (rows) => setLogs(rows),
       onSettings: (row) => setSettings({ ...DEFAULT_SETTINGS, ...row }),
-      onError: (err) => {
-        console.error(err);
-        setError(err.message || 'Firebase 연결 오류가 발생했습니다.');
-        setLoading(false);
-      },
+      onError: (err) => { setError(err.message || 'Firebase 연결 오류가 발생했습니다.'); setLoading(false); },
     });
     return cleanup;
   }, []);
 
   useEffect(() => {
-    const handleOnline = () => setOnline(true);
-    const handleOffline = () => setOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
+    const on = () => setOnline(true);
+    const off = () => setOnline(false);
+    window.addEventListener('online', on);
+    window.addEventListener('offline', off);
+    return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
 
   const inventory = useMemo(
     () => normalizeInventory({ chemicals, consumables, ciEquip, customCats, settings }),
     [chemicals, consumables, ciEquip, customCats, settings],
   );
-
-  const insights = useMemo(() => calculateInsights(inventory, logs), [inventory, logs]);
   const categories = useMemo(() => [...BUILTIN_CONSUMABLE_CATS, ...customCats], [customCats]);
+  const allZones = useMemo(() => [...STORAGE_ZONES, ...(settings.customZones || [])], [settings]);
+  const allChemCats = useMemo(() => [...CHEMICAL_CATEGORIES, ...(settings.customChemCats || [])], [settings]);
+
+  // 드롭다운에 새 항목 추가 (선택값을 돌려줘 즉시 선택되게 함)
+  async function addZone(label) {
+    await saveTeamSettings({ customZones: [...(settings.customZones || []), label] });
+    return label;
+  }
+  async function addChemCat(label) {
+    await saveTeamSettings({ customChemCats: [...(settings.customChemCats || []), label] });
+    return label;
+  }
+  async function addCategory(label) {
+    const id = `cat_${Date.now()}`;
+    await saveConsumableCategory({ id, label, type: 'consumable', canDelete: true });
+    return id;
+  }
+  async function addEquipment(name) {
+    const nextId = Math.max(0, ...ciEquip.map((e) => Number(e.id || 0))) + 1;
+    await saveEquipment({ id: nextId, name, lamp: '', order: nextId, parts: [] });
+    return `ci_${nextId}`;
+  }
+  const attention = useMemo(() => inventory.filter((it) => it.status !== 'ok'), [inventory]);
+  const selected = useMemo(() => inventory.find((it) => it.key === selectedKey) || null, [inventory, selectedKey]);
+  const favorites = useMemo(() => { try { return JSON.parse(favRaw) || []; } catch { return []; } }, [favRaw]);
+
+  function toggleFavorite(key) {
+    setFavRaw(JSON.stringify(favorites.includes(key) ? favorites.filter((k) => k !== key) : [...favorites, key]));
+  }
 
   useEffect(() => {
     if (!labelKey && inventory.length) setLabelKey(inventory[0].key);
   }, [inventory, labelKey]);
 
+  // 라벨 QR을 스캔하면 ?item=<key> 로 들어와 해당 품목 시트가 바로 열립니다.
+  useEffect(() => {
+    if (deepLinked || !inventory.length) return;
+    const k = new URLSearchParams(window.location.search).get('item');
+    if (k && inventory.some((it) => it.key === k)) setSelectedKey(k);
+    setDeepLinked(true);
+  }, [inventory, deepLinked]);
+
+  function flash(message, undo = null) {
+    setToast({ msg: message, undo });
+    window.clearTimeout(flash._t);
+    flash._t = window.setTimeout(() => setToast(null), undo ? 6000 : 2000);
+  }
+
   async function handleMovement({ item, direction, amount, unit, memo }) {
     if (!currentUser) return;
     const next = applyQuantityDelta(item, direction, amount, unit);
     const log = makeMovementPayload({ item, direction, amount, unit, handler: currentUser, memo });
-
     if (item.type === 'chemical') await saveChemical(next);
     if (item.type === 'consumable') await saveConsumableItem(next);
     if (item.type === 'equipment') await saveEquipment(next);
-    await addMovementLog(log);
-    setSelectedItem(null);
+    const ref = await addMovementLog(log);
+    flash(
+      `${item.name} ${direction === 'out' ? '출고' : '입고'} 기록이 완료되었습니다`,
+      { itemKey: item.key, direction, amount, unit, logId: ref?.id },
+    );
+    setSelectedKey('');
+  }
+
+  async function handleUndo(undo) {
+    const item = inventory.find((it) => it.key === undo.itemKey);
+    if (!item) { flash('변경된 항목이라 되돌릴 수 없습니다'); return; }
+    const reverse = undo.direction === 'out' ? 'in' : 'out';
+    const next = applyQuantityDelta(item, reverse, undo.amount, undo.unit);
+    if (item.type === 'chemical') await saveChemical(next);
+    if (item.type === 'consumable') await saveConsumableItem(next);
+    if (item.type === 'equipment') await saveEquipment(next);
+    if (undo.logId) await deleteMovementLog({ _docId: undo.logId });
+    flash('되돌렸습니다');
   }
 
   async function handleSaveItem(itemType, payload) {
     if (itemType === 'chemical') await saveChemical(payload);
-    if (itemType === 'consumable') await saveConsumableItem(payload);
+    if (itemType === 'consumable') await saveConsumableItem({ ...payload, catId: payload.catId });
     if (itemType === 'equipment') await saveEquipment(payload);
-    setSelectedItem(null);
+    flash('저장되었습니다');
+    setSelectedKey('');
   }
 
   async function handleDeleteItem(item) {
-    if (!window.confirm(`'${item.name}' 항목을 삭제할까요?`)) return;
+    if (!window.confirm(`'${item.name}' 항목을 삭제하시겠습니까?`)) return;
     if (item.type === 'chemical') await deleteChemical(item.source);
     if (item.type === 'consumable') await deleteConsumableItem(item.source);
-    setSelectedItem(null);
+    if (item.type === 'equipment') {
+      const equipment = { ...item.equipment, parts: (item.equipment.parts || []).filter((_, i) => i !== item.partIndex) };
+      await saveEquipment(equipment);
+    }
+    setSelectedKey('');
   }
 
   async function handleCreateItem(form) {
+    const ts = new Date().toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     if (form.type === 'chemical') {
-      const nextId = Math.max(0, ...chemicals.map((item) => Number(item.id || 0))) + 1;
+      const nextId = Math.max(0, ...chemicals.map((it) => Number(it.id || 0))) + 1;
       await saveChemical({
-        id: nextId,
-        name: form.name,
-        handler: form.handler || currentUser || '-',
-        purpose: form.purpose || '-',
-        qty: quantityText(form.qty || 0, form.unit || 'EA'),
-        cat: form.cat || '기타',
-        purchased: form.purchased || todayKey(),
-        opened: form.opened || '-',
+        id: nextId, name: form.name, handler: form.handler || currentUser || '-', purpose: form.purpose || '-',
+        qty: quantityText(form.qty || 0, form.unit || 'EA'), cat: form.cat || '기타',
+        purchased: form.purchased || todayKey(), opened: form.opened || '-',
         disposed: form.disposed || (form.opened ? addDays(form.opened, 365) : '-'),
-        msds: form.msds || '',
-        storageZone: form.storageZone || '',
-        hazardClass: form.hazardClass || '',
+        storageZone: form.storageZone || '', photo: form.photo || '',
       });
-      await addMovementLog({
-        item: form.name,
-        itemType: 'chemical',
-        action: 'add',
-        qty: quantityText(form.qty || 0, form.unit || 'EA'),
-        handler: currentUser,
-        memo: '신규 등록',
-        time: new Date().toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-        isoDate: todayKey(),
-      });
+    } else if (form.type === 'equipment') {
+      const eq = ciEquip.find((e) => e._docId === form.equipId);
+      if (!eq) { flash('장비를 선택하세요'); return; }
+      const newPart = {
+        n: form.name, need: Number(form.need || 0), have: Number(form.qty || 0),
+        code: form.code || '', serial: form.serial || '', price: 0,
+      };
+      await saveEquipment({ ...eq, parts: [...(eq.parts || []), newPart] });
     } else {
-      const nextId = Math.max(0, ...consumables.map((item) => Number(item.id || 0))) + 1;
+      const nextId = Math.max(0, ...consumables.map((it) => Number(it.id || 0))) + 1;
       await saveConsumableItem({
-        id: nextId,
-        catId: form.catId || 'etc',
-        n: form.name,
-        cat: form.cat || '',
-        qty: Number(form.qty || 0),
-        unit: form.unit || 'EA',
-        purpose: form.purpose || '',
-        code: form.code || '',
-        spec: form.spec || '',
-        location: form.location || '',
-      });
-      await addMovementLog({
-        item: form.name,
-        itemType: 'consumable',
-        action: 'add',
-        qty: quantityText(form.qty || 0, form.unit || 'EA'),
-        handler: currentUser,
-        memo: '신규 등록',
-        time: new Date().toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }),
-        isoDate: todayKey(),
+        id: nextId, catId: form.catId || 'etc', n: form.name, cat: form.cat || '',
+        qty: Number(form.qty || 0), unit: form.unit || 'EA', purpose: form.purpose || '',
+        code: form.code || '', location: form.location || '', photo: form.photo || '',
       });
     }
+    await addMovementLog({
+      item: form.name, itemType: form.type, action: 'add',
+      qty: quantityText(form.qty || 0, form.unit || 'EA'), handler: currentUser,
+      memo: '신규 등록', time: ts, isoDate: todayKey(),
+    });
+    flash('새 품목이 등록되었습니다');
     setNewItemOpen(false);
   }
 
   async function handleExport() {
     const counts = await exportCollectionCounts();
     downloadJson(`fiti_inventory_${todayKey()}.json`, {
-      exportedAt: new Date().toISOString(),
-      counts,
-      chemicals,
-      consumables,
-      ciEquip,
-      customCats,
-      logs,
-      settings,
+      exportedAt: new Date().toISOString(), counts, chemicals, consumables, ciEquip, customCats, logs, settings,
     });
   }
 
-  if (!currentUser) {
-    return <UserGate onSelect={setCurrentUser} />;
-  }
+  function openLabelFor(item) { setLabelKey(item.key); setSelectedKey(''); setActiveView('labels'); }
+  function openAttention() { setStockAttention(true); setActiveView('stock'); }
 
-  const activeMeta = NAV_ITEMS.find((item) => item.id === activeView) || NAV_ITEMS[0];
+  if (!currentUser) return <UserGate onSelect={setCurrentUser} />;
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand-block">
-          <div className="brand-mark">FITI</div>
-          <div>
-            <strong>의장소재팀</strong>
-            <span>재고관리 콘솔</span>
-          </div>
-        </div>
-        <nav className="sidebar-nav" aria-label="주 메뉴">
-          {NAV_ITEMS.map((item) => (
-            <button
-              key={item.id}
-              className={`nav-item ${activeView === item.id ? 'active' : ''}`}
-              onClick={() => setActiveView(item.id)}
-            >
-              <item.icon size={18} />
-              <span>{item.label}</span>
-            </button>
-          ))}
-        </nav>
-        <div className="sidebar-status">
-          <StatusDot online={online} />
-          <span>{online ? 'Firebase 실시간 동기화' : '오프라인 모드'}</span>
-        </div>
-      </aside>
+      <DesktopRail
+        active={activeView}
+        currentUser={currentUser}
+        online={online}
+        onNav={(id) => { setStockAttention(false); setActiveView(id); }}
+        onNew={() => setNewItemOpen(true)}
+      />
 
-      <main className="main-panel">
-        <header className="topbar">
-          <div>
-            <span className="eyebrow">FITI Testing & Research Institute</span>
-            <h1>{activeMeta.label}</h1>
-          </div>
-          <div className="topbar-actions">
-            <button className="icon-text ghost" onClick={() => setActiveView('settings')}>
-              <UserRound size={18} />
-              <span>{currentUser}</span>
-            </button>
-            <button className="icon-text primary" onClick={() => setNewItemOpen(true)}>
-              <Plus size={18} />
-              <span>신규 등록</span>
-            </button>
-          </div>
-        </header>
+      <main className="main">
+        <MobileHeader
+          currentUser={currentUser}
+          attentionCount={attention.length}
+          onHome={() => { setStockAttention(false); setActiveView('home'); }}
+          onBell={openAttention}
+          onNew={() => setNewItemOpen(true)}
+        />
 
         {error && (
-          <div className="inline-alert red">
-            <AlertTriangle size={18} />
-            <span>{error}</span>
-            <button onClick={() => setError('')} aria-label="오류 닫기"><X size={16} /></button>
+          <div className="alert error">
+            <div className="tape" />
+            <div><b>연결 오류가 발생했습니다</b><span>{error}</span></div>
+            <button onClick={() => setError('')} aria-label="닫기"><X size={16} /></button>
           </div>
         )}
 
-        {loading ? (
-          <LoadingState />
-        ) : (
-          <>
-            {activeView === 'dashboard' && (
-              <DashboardView
-                insights={insights}
-                inventory={inventory}
-                logs={logs}
-                online={online}
-                onOpenItem={setSelectedItem}
-                onOpenLabels={(item) => {
-                  setLabelKey(item.key);
-                  setActiveView('labels');
-                }}
-              />
-            )}
-            {activeView === 'inventory' && (
-              <InventoryView
-                inventory={inventory}
-                insights={insights}
-                onOpenItem={setSelectedItem}
-                onOpenLabels={(item) => {
-                  setLabelKey(item.key);
-                  setActiveView('labels');
-                }}
-                onCreate={() => setNewItemOpen(true)}
-              />
-            )}
-            {activeView === 'ledger' && (
-              <LedgerView logs={logs} currentUser={currentUser} onDeleteLog={deleteMovementLog} />
-            )}
-            {activeView === 'labels' && (
-              <LabelsView inventory={inventory} labelKey={labelKey} onChangeLabelKey={setLabelKey} />
-            )}
-            {activeView === 'settings' && (
-              <SettingsView
-                currentUser={currentUser}
-                settings={settings}
-                setCurrentUser={setCurrentUser}
-                onSaveSettings={saveTeamSettings}
-                onExport={handleExport}
-              />
-            )}
-          </>
+        {!online && (
+          <div className="offline-strip">
+            <WifiOff size={14} />오프라인 상태입니다 — 기록은 저장되며 연결 시 자동으로 동기화됩니다.
+          </div>
         )}
+
+        <div className="scroll">
+          {loading ? <LoadingState /> : (
+            <>
+              {activeView === 'home' && (
+                <HomeView
+                  currentUser={currentUser}
+                  inventory={inventory}
+                  logs={logs}
+                  favorites={favorites}
+                  onOpen={setSelectedKey}
+                  onOpenList={(mode) => { setListMode(mode); setActiveView('list'); }}
+                />
+              )}
+              {activeView === 'list' && (
+                <ListView
+                  mode={listMode}
+                  inventory={inventory}
+                  logs={logs}
+                  favorites={favorites}
+                  onOpen={setSelectedKey}
+                  onBack={() => setActiveView('home')}
+                />
+              )}
+              {activeView === 'stock' && (
+                <StockView
+                  inventory={inventory}
+                  logs={logs}
+                  attentionOnly={stockAttention}
+                  setAttentionOnly={setStockAttention}
+                  onOpen={setSelectedKey}
+                  onNew={() => setNewItemOpen(true)}
+                />
+              )}
+              {activeView === 'ledger' && (
+                <LedgerView inventory={inventory} logs={logs} currentUser={currentUser} onDeleteLog={deleteMovementLog} />
+              )}
+              {activeView === 'labels' && (
+                <LabelsView inventory={inventory} labelKey={labelKey} onChangeLabelKey={setLabelKey} />
+              )}
+              {activeView === 'settings' && (
+                <SettingsView
+                  currentUser={currentUser} settings={settings}
+                  setCurrentUser={setCurrentUser} onSaveSettings={saveTeamSettings} onExport={handleExport}
+                />
+              )}
+            </>
+          )}
+        </div>
       </main>
 
-      <nav className="mobile-nav" aria-label="모바일 메뉴">
-        {NAV_ITEMS.map((item) => (
-          <button
-            key={item.id}
-            className={activeView === item.id ? 'active' : ''}
-            onClick={() => setActiveView(item.id)}
-          >
-            <item.icon size={19} />
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </nav>
+      <BottomTabs active={activeView} onNav={(id) => { setStockAttention(false); setActiveView(id); }} />
 
-      <InventoryDrawer
-        item={selectedItem}
-        currentUser={currentUser}
-        categories={categories}
-        onClose={() => setSelectedItem(null)}
-        onMove={handleMovement}
-        onSave={handleSaveItem}
-        onDelete={handleDeleteItem}
-      />
+      {selected && (
+        <QuickLogSheet
+          key={selected.key}
+          item={selected}
+          logs={logs}
+          categories={categories}
+          zones={allZones}
+          chemCats={allChemCats}
+          onAddZone={addZone}
+          onAddChemCat={addChemCat}
+          onAddCategory={addCategory}
+          isFav={favorites.includes(selected.key)}
+          onToggleFav={() => toggleFavorite(selected.key)}
+          onClose={() => setSelectedKey('')}
+          onMove={handleMovement}
+          onSave={handleSaveItem}
+          onDelete={handleDeleteItem}
+          onOpenLabel={openLabelFor}
+        />
+      )}
 
       {newItemOpen && (
         <NewItemModal
-          currentUser={currentUser}
-          categories={categories}
-          onClose={() => setNewItemOpen(false)}
-          onSubmit={handleCreateItem}
+          currentUser={currentUser} categories={categories} equipmentList={ciEquip}
+          zones={allZones} chemCats={allChemCats}
+          onAddZone={addZone} onAddChemCat={addChemCat} onAddCategory={addCategory} onAddEquipment={addEquipment}
+          onClose={() => setNewItemOpen(false)} onSubmit={handleCreateItem}
         />
+      )}
+
+      {toast && (
+        <div className="toast show">
+          <Check size={16} className="ok" />{toast.msg}
+          {toast.undo && (
+            <button className="toast-undo" onClick={() => handleUndo(toast.undo)}>되돌리기</button>
+          )}
+        </div>
       )}
     </div>
   );
 }
 
+/* ------------------------------------------------------------------ gate */
 function UserGate({ onSelect }) {
   return (
-    <div className="user-gate">
+    <div className="gate">
       <div className="gate-card">
         <div className="brand-mark large">FITI</div>
-        <span className="eyebrow">Inventory Operations Console</span>
-        <h1>의장소재팀 재고관리</h1>
-        <p>사용자를 선택하면 개인 즐겨찾기와 출고 기록 담당자가 자동으로 적용됩니다.</p>
+        <span className="eyebrow">의장소재팀 재고관리</span>
+        <h1>담당자 선택</h1>
+        <p>이름을 선택하면 입출고 기록의 담당자로 지정됩니다. 설정에서 변경할 수 있습니다.</p>
         <div className="member-grid">
-          {TEAM_MEMBERS.map((member) => (
-            <button key={member} onClick={() => onSelect(member)}>
-              <span>{member.slice(-3)}</span>
-              {member}
+          {TEAM_MEMBERS.map((m) => (
+            <button key={m} onClick={() => onSelect(m)}>
+              <span>{m.slice(-3)}</span>{m.replace(/^의장_/, '')}
             </button>
           ))}
         </div>
@@ -428,741 +430,1003 @@ function UserGate({ onSelect }) {
   );
 }
 
-function DashboardView({ insights, inventory, logs, online, onOpenItem, onOpenLabels }) {
-  const urgent = inventory.filter((item) => item.status !== 'ok').slice(0, 8);
-  const recent = logs.slice(0, 6);
-
+/* ------------------------------------------------------------------ chrome */
+function DesktopRail({ active, currentUser, online, onNav, onNew }) {
   return (
-    <div className="view-stack">
-      <section className="dashboard-hero">
-        <div>
-          <span className="eyebrow">실시간 운영 현황</span>
-          <h2>시험 재료, 소모품, 시약을 한 화면에서 통제합니다.</h2>
-          <p>PDF 관리방안의 리스트, 라벨, 대장, 보관구역 요구사항을 Firestore 데이터 흐름에 맞춰 반영했습니다.</p>
-        </div>
-        <div className="sync-card">
-          <StatusDot online={online} />
-          <strong>{online ? '온라인 동기화 중' : '오프라인'}</strong>
-          <span>Firestore 컬렉션 6개 모니터링</span>
-        </div>
-      </section>
-
-      <section className="kpi-grid">
-        <KpiCard icon={Boxes} label="전체 관리 항목" value={formatNumber(insights.total)} sub={`${insights.chemicals}개 화학물질`} />
-        <KpiCard icon={Bell} label="주의/긴급" value={formatNumber(insights.warning + insights.critical)} tone="amber" sub={`긴급 ${insights.critical}건`} />
-        <KpiCard icon={ClipboardList} label="오늘 입출고" value={formatNumber(insights.todayLogs)} tone="blue" sub={`이번달 출고 ${insights.monthOut}건`} />
-        <KpiCard icon={ShieldCheck} label="라벨 관리율" value={`${insights.labelScore}%`} tone="green" sub="입고일/취급자 기준" />
-      </section>
-
-      <section className="two-column">
-        <Panel title="업무 우선순위" icon={AlertTriangle} action={<span className="panel-count">{urgent.length}건</span>}>
-          {urgent.length ? (
-            <div className="priority-list">
-              {urgent.map((item) => (
-                <button key={item.key} className="priority-row" onClick={() => onOpenItem(item)}>
-                  <StatusPill status={item.status} label={item.reason} />
-                  <div>
-                    <strong>{item.name}</strong>
-                    <span>{item.typeLabel} · {item.category} · {item.qtyText}</span>
-                  </div>
-                  {item.type === 'chemical' && (
-                    <button className="mini-action" onClick={(event) => { event.stopPropagation(); onOpenLabels(item); }}>
-                      <Tag size={14} />
-                    </button>
-                  )}
-                </button>
-              ))}
-            </div>
-          ) : (
-            <EmptyState icon={CheckCircle2} title="긴급 조치가 없습니다" text="현재 임계치 기준으로 안정적인 상태입니다." />
-          )}
-        </Panel>
-
-        <Panel title="최근 입출고" icon={CalendarClock}>
-          {recent.length ? (
-            <div className="log-list compact">
-              {recent.map((log) => <LogRow key={log._docId || `${log.item}-${log.time}`} log={log} />)}
-            </div>
-          ) : (
-            <EmptyState icon={ClipboardList} title="아직 기록이 없습니다" text="재고 이동을 저장하면 대장에 자동 누적됩니다." />
-          )}
-        </Panel>
-      </section>
-
-      <Panel title="관리방안 반영 체크" icon={ShieldCheck}>
-        <div className="rules-grid">
-          {MANAGEMENT_RULES.map((rule) => (
-            <article className="rule-card" key={rule.id}>
-              <span>{rule.issue}</span>
-              <h3>{rule.title}</h3>
-              <ul>
-                {rule.checklist.map((item) => <li key={item}>{item}</li>)}
-              </ul>
-            </article>
-          ))}
-        </div>
-      </Panel>
-
-      <section className="two-column">
-        <Panel title="출고 빈도 TOP 5" icon={BarChart3}>
-          {insights.topUsed.length ? (
-            <div className="bar-list">
-              {insights.topUsed.map((item) => (
-                <div className="bar-row" key={item.name}>
-                  <span>{item.name}</span>
-                  <div><i style={{ width: `${Math.min(100, item.count * 18)}%` }} /></div>
-                  <strong>{item.count}회</strong>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState icon={BarChart3} title="출고 패턴 수집 중" text="출고 기록이 쌓이면 자주 쓰는 항목이 자동으로 보입니다." />
-          )}
-        </Panel>
-        <Panel title="운영 품질 지표" icon={Database}>
-          <div className="quality-grid">
-            <QualityMetric label="정상 항목" value={insights.ok} total={insights.total} tone="green" />
-            <QualityMetric label="주의 항목" value={insights.warning} total={insights.total} tone="amber" />
-            <QualityMetric label="긴급 항목" value={insights.critical} total={insights.total} tone="red" />
-          </div>
-        </Panel>
-      </section>
-    </div>
+    <aside className="rail">
+      <button className="brand-block" onClick={() => onNav('home')} aria-label="홈으로 이동">
+        <div className="brand-mark">FITI</div>
+        <div><strong>의장소재팀</strong><span>재고</span></div>
+      </button>
+      <button className="btn primary full" onClick={onNew}><Plus size={17} />새 품목</button>
+      <nav className="rail-nav">
+        {NAV_ITEMS.map((it) => (
+          <button key={it.id} className={`rail-item ${active === it.id ? 'on' : ''}`} onClick={() => onNav(it.id)}>
+            <it.icon size={18} /><span>{it.label}</span>
+          </button>
+        ))}
+      </nav>
+      <div className="rail-foot">
+        <div className="who"><div className="av">{currentUser.slice(-3)}</div>
+          <div><b>{currentUser.replace(/^의장_/, '')}</b><span>{online ? '동기화 중' : '오프라인'}</span></div></div>
+        {online ? <Wifi size={16} className="dot-on" /> : <WifiOff size={16} className="dot-off" />}
+      </div>
+    </aside>
   );
 }
 
-function InventoryView({ inventory, insights, onOpenItem, onOpenLabels, onCreate }) {
-  const [query, setQuery] = useState('');
-  const [type, setType] = useState('all');
-  const [status, setStatus] = useState('all');
-  const rows = useMemo(() => filterInventory(inventory, { query, type, status }), [inventory, query, type, status]);
-
+function MobileHeader({ currentUser, attentionCount, onHome, onBell, onNew }) {
   return (
-    <div className="view-stack">
-      <section className="toolbar-panel">
-        <div className="toolbar-title">
-          <SlidersHorizontal size={18} />
-          <strong>재고 검색과 필터</strong>
-          <span>{formatNumber(rows.length)} / {formatNumber(insights.total)}건</span>
-        </div>
-        <div className="search-field">
-          <Search size={18} />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="품명, 담당자, 용도, 품목코드, 보관구역 검색" />
-        </div>
-        <div className="filter-row">
-          <SegmentedControl value={type} options={TYPE_FILTERS} onChange={setType} />
-          <SegmentedControl value={status} options={STATUS_FILTERS} onChange={setStatus} />
-          <button className="icon-text primary" onClick={onCreate}><PackagePlus size={18} />신규 등록</button>
-        </div>
-      </section>
-
-      <section className="inventory-table-card">
-        <div className="table-head">
-          <span>상태</span>
-          <span>품목</span>
-          <span>분류/용도</span>
-          <span>수량</span>
-          <span>담당</span>
-          <span>관리</span>
-        </div>
-        {rows.length ? rows.map((item) => (
-          <div className="table-row" key={item.key} onClick={() => onOpenItem(item)}>
-            <span><StatusPill status={item.status} label={item.reason} /></span>
-            <span className="item-name-cell">
-              <ItemIcon type={item.type} />
-              <strong>{item.name}</strong>
-              <small>{item.typeLabel}</small>
-            </span>
-            <span>
-              <strong>{item.category}</strong>
-              <small>{item.purpose}</small>
-            </span>
-            <span className="mono qty-cell">{item.qtyText}</span>
-            <span>{item.owner}</span>
-            <span className="row-actions">
-              <button className="mini-action" onClick={(event) => { event.stopPropagation(); onOpenLabels(item); }} title="라벨">
-                <Tag size={15} />
-              </button>
-              <button className="mini-action" onClick={(event) => { event.stopPropagation(); onOpenItem(item); }} title="수정">
-                <Pencil size={15} />
-              </button>
-            </span>
-          </div>
-        )) : (
-          <EmptyState icon={Search} title="검색 결과가 없습니다" text="필터를 줄이거나 다른 검색어를 입력해보세요." />
-        )}
-      </section>
-    </div>
+    <header className="mtop">
+      <button className="mtop-brand" onClick={onHome} aria-label="홈으로 이동">
+        <div className="brand-mark sm">FITI</div>
+        <div><b>{currentUser.replace(/^의장_/, '')}님</b><span>의장소재팀 · 시험</span></div>
+      </button>
+      <div className="mtop-actions">
+        <button className="round" onClick={onNew} aria-label="새 품목"><Plus size={19} /></button>
+        <button className="round" onClick={onBell} aria-label="확인할 항목">
+          <Bell size={18} />{attentionCount > 0 && <span className="dot" />}
+        </button>
+      </div>
+    </header>
   );
 }
 
-function LedgerView({ logs, currentUser, onDeleteLog }) {
-  const [action, setAction] = useState('all');
-  const [owner, setOwner] = useState('all');
-  const filtered = logs.filter((log) => {
-    const actionOk = action === 'all' || log.action === action;
-    const ownerOk = owner === 'all' || (owner === 'me' ? log.handler === currentUser : log.handler === owner);
-    return actionOk && ownerOk;
-  });
-  const owners = Array.from(new Set(logs.map((log) => log.handler).filter(Boolean))).sort();
+function BottomTabs({ active, onNav }) {
+  return (
+    <nav className="tabs" aria-label="메뉴">
+      {NAV_ITEMS.map((it) => (
+        <button key={it.id} className={active === it.id ? 'on' : ''} onClick={() => onNav(it.id)}>
+          <it.icon size={20} /><span>{it.label}</span>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+/* ------------------------------------------------------------------ home */
+function HomeView({ currentUser, inventory, logs, favorites, onOpen, onOpenList }) {
+  const [q, setQ] = useState('');
+  const name = currentUser.replace(/^의장_/, '');
+  const today = todayKey();
+
+  const lowCount = useMemo(() => inventory.filter((it) => it.status !== 'ok').length, [inventory]);
+  const favCount = useMemo(() => inventory.filter((it) => favorites.includes(it.key)).length, [inventory, favorites]);
+  const todayCount = useMemo(() => logs.filter((l) => (l.isoDate || '').startsWith(today)).length, [logs, today]);
+  const searchList = useMemo(() => filterInventory(inventory, { query: q }), [inventory, q]);
+
+  const cards = [
+    { id: 'all', label: '총 재고', value: inventory.length, unit: '개', icon: Boxes, tone: 'ink' },
+    { id: 'low', label: '부족 재고', value: lowCount, unit: '개', icon: AlertTriangle, tone: lowCount ? 'warn' : 'ok' },
+    { id: 'today', label: '오늘 입출고', value: todayCount, unit: '건', icon: ArrowLeftRight, tone: 'ink' },
+    { id: 'fav', label: '즐겨찾기', value: favCount, unit: '개', icon: Star, tone: 'fav' },
+  ];
 
   return (
-    <div className="view-stack">
-      <section className="toolbar-panel ledger-toolbar">
-        <div className="toolbar-title">
-          <ClipboardList size={18} />
-          <strong>입출고 대장</strong>
-          <span>{formatNumber(filtered.length)}건</span>
-        </div>
-        <div className="filter-row">
-          <SegmentedControl
-            value={action}
-            options={[{ id: 'all', label: '전체' }, { id: 'add', label: '입고' }, { id: 'use', label: '출고' }]}
-            onChange={setAction}
-          />
-          <select className="select" value={owner} onChange={(event) => setOwner(event.target.value)}>
-            <option value="all">전체 담당자</option>
-            <option value="me">나만 보기</option>
-            {owners.map((name) => <option key={name} value={name}>{name}</option>)}
-          </select>
-          <button className="icon-text ghost" onClick={() => window.print()}><Printer size={18} />인쇄</button>
-        </div>
-      </section>
+    <div className="view">
+      <div className="hello">{name}님, 안녕하세요.<small>카드를 눌러 재고 현황을 확인하세요.</small></div>
 
-      <Panel title="대장 기록" icon={FileText}>
-        {filtered.length ? (
-          <div className="log-list">
-            {filtered.map((log) => (
-              <LogRow
-                key={log._docId || `${log.item}-${log.time}`}
-                log={log}
-                canDelete={log.handler === currentUser}
-                onDelete={() => onDeleteLog(log)}
-              />
+      <SearchBar value={q} onChange={setQ} placeholder="품명 검색 (초성 검색 지원 — 예: ㅇㅅㅌ)" />
+
+      {q ? (
+        <>
+          <div className="label" style={{ marginTop: 16 }}>검색 결과</div>
+          <ItemList items={searchList} logs={logs} onOpen={onOpen} />
+        </>
+      ) : (
+        <>
+          <div className="stat-grid">
+            {cards.map((c) => (
+              <button key={c.id} className={`stat-card tone-${c.tone}`} onClick={() => onOpenList(c.id)}>
+                <div className="stat-ic"><c.icon size={17} /></div>
+                <div className="stat-num">{formatNumber(c.value)}<small>{c.unit}</small></div>
+                <div className="stat-label">{c.label}</div>
+              </button>
             ))}
           </div>
-        ) : (
-          <EmptyState icon={ClipboardList} title="조건에 맞는 기록이 없습니다" text="필터를 변경하거나 재고 이동을 먼저 저장하세요." />
-        )}
-      </Panel>
+
+          <div className="label" style={{ marginTop: 22 }}>시약·소모품 관리 지침</div>
+          <GuidePanel />
+        </>
+      )}
     </div>
   );
 }
 
-function LabelsView({ inventory, labelKey, onChangeLabelKey }) {
-  const selected = inventory.find((item) => item.key === labelKey) || inventory[0];
-  const labelItems = inventory.filter((item) => item.type !== 'equipment');
+/* ------------------------------------------------------------------ 관리 지침 */
+function GuidePanel() {
+  const [open, setOpen] = useState(MANAGEMENT_RULES[0]?.id || '');
+  return (
+    <div className="guide">
+      {MANAGEMENT_RULES.map((rule, idx) => {
+        const isOpen = open === rule.id;
+        return (
+          <div key={rule.id} className={`guide-item ${isOpen ? 'on' : ''}`}>
+            <button className="guide-head" onClick={() => setOpen(isOpen ? '' : rule.id)} aria-expanded={isOpen}>
+              <div className="guide-no">{idx + 1}</div>
+              <div className="guide-tt"><b>{rule.title}</b><span>{rule.issue}</span></div>
+              <ChevronDown size={18} className="guide-caret" style={{ transform: isOpen ? 'rotate(180deg)' : '' }} />
+            </button>
+            {isOpen && (
+              <ul className="guide-list">
+                {rule.checklist.map((c, i) => (
+                  <li key={i}><Check size={15} />{c}</li>
+                ))}
+              </ul>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ list (card 상세) */
+function ListView({ mode, inventory, logs, favorites, onOpen, onBack }) {
+  const today = todayKey();
+  const meta = {
+    all: { title: '총 재고', sub: '등록된 전체 품목입니다.' },
+    low: { title: '부족 재고', sub: '재고가 부족하거나 확인이 필요한 품목입니다.' },
+    today: { title: '오늘 입출고', sub: '오늘 기록된 입출고 내역입니다.' },
+    fav: { title: '즐겨찾기', sub: '별표로 등록한 품목입니다.' },
+  }[mode] || { title: '목록', sub: '' };
+
+  const items = useMemo(() => {
+    if (mode === 'low') return inventory.filter((it) => it.status !== 'ok');
+    if (mode === 'fav') return inventory.filter((it) => favorites.includes(it.key));
+    return inventory;
+  }, [mode, inventory, favorites]);
+  const todayLogs = useMemo(() => logs.filter((l) => (l.isoDate || '').startsWith(today)), [logs, today]);
 
   return (
-    <div className="label-layout">
-      <Panel title="라벨 대상" icon={QrCode}>
-        <div className="search-stack">
-          {labelItems.map((item) => (
-            <button
-              key={item.key}
-              className={`label-target ${selected?.key === item.key ? 'active' : ''}`}
-              onClick={() => onChangeLabelKey(item.key)}
-            >
-              <ItemIcon type={item.type} />
-              <span>
-                <strong>{item.name}</strong>
-                <small>{item.typeLabel} · {item.qtyText}</small>
-              </span>
-              <StatusPill status={item.status} label={item.reason} />
+    <div className="view">
+      <div className="list-head">
+        <button className="back-btn" onClick={onBack} aria-label="홈으로"><ArrowLeft size={19} /></button>
+        <div><div className="vhead">{meta.title}</div><p className="vsub">{meta.sub}</p></div>
+      </div>
+
+      {mode === 'today' ? (
+        todayLogs.length ? (
+          <div className="hist">
+            {todayLogs.map((l) => <LogRow key={l._docId || `${l.item}-${l.time}`} log={l} onOpen={() => onOpen(l.itemKey)} />)}
+          </div>
+        ) : <EmptyState title="오늘 입출고 기록이 없습니다" text="품목을 선택해 첫 기록을 남겨보세요." />
+      ) : items.length ? (
+        <InventoryBrowser baseItems={items} logs={logs} onOpen={onOpen} />
+      ) : mode === 'fav' ? (
+        <EmptyState title="즐겨찾기가 없습니다" text="품목을 열고 별표(★)를 눌러 즐겨찾기에 추가하세요." />
+      ) : mode === 'low' ? (
+        <EmptyState title="부족한 재고가 없습니다" text="현재 모든 품목이 정상 상태입니다." />
+      ) : (
+        <EmptyState title="등록된 품목이 없습니다" text="새 품목을 추가해 보세요." />
+      )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ stock */
+const TYPE_FILTERS = [
+  { id: 'all', label: '전체' }, { id: 'chemical', label: '약품' },
+  { id: 'consumable', label: '일반 소모품' }, { id: 'equipment', label: '장비 소모품' },
+];
+
+function StockView({ inventory, logs, attentionOnly, setAttentionOnly, onOpen, onNew }) {
+  const base = useMemo(
+    () => (attentionOnly ? inventory.filter((it) => it.status !== 'ok') : inventory),
+    [inventory, attentionOnly],
+  );
+  return (
+    <div className="view">
+      <div className="vhead-row">
+        <div><div className="vhead">전체 재고</div><p className="vsub">약품·일반 소모품·장비 소모품을 한곳에서 관리합니다.</p></div>
+        <button className="btn ghost only-wide" onClick={onNew}><Plus size={16} />새 품목</button>
+      </div>
+      <InventoryBrowser
+        baseItems={base}
+        logs={logs}
+        onOpen={onOpen}
+        filterExtra={(
+          <button className={`pill-toggle ${attentionOnly ? 'on' : ''}`} onClick={() => setAttentionOnly(!attentionOnly)}>
+            확인 필요만
+          </button>
+        )}
+      />
+    </div>
+  );
+}
+
+// 검색 + 구분 필터(전체/약품/일반 소모품/장비 소모품) + 장비 드릴다운. 선반·홈 카드에서 공통 사용.
+function InventoryBrowser({ baseItems, logs, onOpen, filterExtra = null }) {
+  const [q, setQ] = useState('');
+  const [type, setType] = useState('all');
+  const [equipKey, setEquipKey] = useState('');
+  const equipMode = type === 'equipment';
+
+  const equipGroups = useMemo(() => {
+    const map = new Map();
+    baseItems.filter((it) => it.type === 'equipment').forEach((it) => {
+      const key = it.equipment?._docId || it.category;
+      if (!map.has(key)) map.set(key, { key, name: it.category, lamp: it.owner, items: [] });
+      map.get(key).items.push(it);
+    });
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+  }, [baseItems]);
+  const selectedEquip = equipGroups.find((g) => g.key === equipKey) || null;
+
+  const list = useMemo(() => filterInventory(baseItems, { query: q, type }), [baseItems, q, type]);
+  const equipParts = useMemo(
+    () => (selectedEquip ? filterInventory(selectedEquip.items, { query: q }) : []),
+    [selectedEquip, q],
+  );
+
+  function changeType(t) { setType(t); setEquipKey(''); }
+
+  return (
+    <>
+      <SearchBar value={q} onChange={setQ} placeholder="품명·용도·시험실 검색" />
+      <div className="filter-row">
+        <Segmented value={type} options={TYPE_FILTERS} onChange={changeType} />
+        {filterExtra}
+      </div>
+
+      {equipMode ? (
+        selectedEquip ? (
+          <>
+            <button className="equip-back" onClick={() => setEquipKey('')}><ArrowLeft size={16} />장비 목록</button>
+            <div className="equip-title"><Layers size={18} /><b>{selectedEquip.name}</b>
+              {selectedEquip.lamp && selectedEquip.lamp !== '-' && <span>{selectedEquip.lamp}</span>}</div>
+            <div className="count">{formatNumber(equipParts.length)}개 소모품</div>
+            <ItemList items={equipParts} logs={logs} onOpen={onOpen} />
+          </>
+        ) : (
+          <EquipGrid groups={equipGroups} query={q} onPick={setEquipKey} />
+        )
+      ) : (
+        <>
+          <div className="count">{formatNumber(list.length)}개</div>
+          <ItemList items={list} logs={logs} onOpen={onOpen} />
+        </>
+      )}
+    </>
+  );
+}
+
+function EquipGrid({ groups, query, onPick }) {
+  const q = query.trim().toLowerCase();
+  const list = q ? groups.filter((g) => g.name.toLowerCase().includes(q)) : groups;
+  if (!list.length) return <EmptyState title="장비가 없습니다" text="장비 소모품 데이터를 먼저 등록하세요." />;
+  return (
+    <div className="equip-grid">
+      {list.map((g) => {
+        const attn = g.items.filter((it) => it.status !== 'ok').length;
+        const crit = g.items.some((it) => it.status === 'critical');
+        return (
+          <button key={g.key} className="equip-card" onClick={() => onPick(g.key)}>
+            <div className="equip-ic"><Layers size={19} /></div>
+            <div className="equip-body">
+              <b>{g.name}</b>
+              <span>소모품 {g.items.length}종{g.lamp && g.lamp !== '-' ? ` · ${g.lamp}` : ''}</span>
+            </div>
+            {attn > 0
+              ? <span className={`equip-pin ${crit ? 'crit' : 'warn'}`}>확인 {attn}</span>
+              : <span className="equip-pin ok">정상</span>}
+            <ChevronDown className="go" size={18} style={{ transform: 'rotate(-90deg)' }} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ ledger */
+function LedgerView({ inventory, logs, currentUser, onDeleteLog }) {
+  const [view, setView] = useState('log'); // 'log' | 'register'
+  const [scope, setScope] = useState('me');
+  const today = todayKey();
+  const filtered = logs.filter((l) => (scope === 'all' ? true : l.handler === currentUser));
+  const groups = filtered.reduce((acc, l) => {
+    const day = (l.isoDate || '').slice(0, 10) || '기타';
+    (acc[day] = acc[day] || []).push(l);
+    return acc;
+  }, {});
+  const days = Object.keys(groups).sort().reverse();
+
+  return (
+    <div className="view">
+      <div className="vhead-row">
+        <div><div className="vhead">{view === 'register' ? '소모품 대장' : (scope === 'me' ? '내 기록' : '팀 전체 기록')}</div>
+          <p className="vsub">{view === 'register' ? '입출고 기록으로 자동 작성되는 소모품 대장입니다.' : '입출고 내역이 시간순으로 기록됩니다.'}</p></div>
+        {view === 'log' && <button className="btn ghost only-wide" onClick={() => window.print()}><Printer size={16} />인쇄</button>}
+      </div>
+
+      <Segmented value={view} options={[{ id: 'log', label: '입출고 기록' }, { id: 'register', label: '소모품 대장' }]} onChange={setView} />
+
+      {view === 'register' ? (
+        <ConsumableLedger inventory={inventory} logs={logs} />
+      ) : (
+        <>
+          <div className="filter-row">
+            <Segmented value={scope} options={[{ id: 'me', label: '나만' }, { id: 'all', label: '팀 전체' }]} onChange={setScope} />
+          </div>
+          {days.length ? days.map((day) => (
+            <div key={day}>
+              <div className="day">{day === today ? '오늘' : day}</div>
+              <div className="hist">
+                {groups[day].map((l) => (
+                  <LogRow key={l._docId || `${l.item}-${l.time}`} log={l}
+                    canDelete={l.handler === currentUser} onDelete={() => onDeleteLog(l)} />
+                ))}
+              </div>
+            </div>
+          )) : (
+            <EmptyState title="기록이 없습니다" text="홈에서 품목을 선택하여 기록을 시작하세요." />
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+/* 소모품 대장 (FITI-P006-01-01) — 입출고 기록으로 자동 작성 */
+function ledgerQtyNum(text) {
+  const m = String(text ?? '').match(/-?\d+(?:\.\d+)?/);
+  return m ? Number(m[0]) : 0;
+}
+
+function ConsumableLedger({ inventory, logs }) {
+  const [sel, setSel] = useState('');
+  const selected = inventory.find((it) => it.key === sel) || null;
+
+  if (selected) {
+    return (
+      <div>
+        <div className="ledger-actions">
+          <button className="equip-back" onClick={() => setSel('')}><ArrowLeft size={16} />품목 목록</button>
+          <button className="btn primary" onClick={() => window.print()}><Printer size={16} />이 대장 인쇄</button>
+        </div>
+        <div className="ledger-print-area">
+          <LedgerSheet item={selected} logs={logs} />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <p className="ledger-hint">품목을 선택하면 입출고 기록으로 대장이 자동 작성됩니다. 검색·분류 후 한 건씩 인쇄하세요.</p>
+      <InventoryBrowser baseItems={inventory} logs={logs} onOpen={setSel} />
+    </div>
+  );
+}
+
+function LedgerSheet({ item, logs }) {
+  const rows = logs
+    .filter((l) => l.itemKey === item.key || l.item === item.name)
+    .slice()
+    .sort((a, b) => (a.isoDate || '').localeCompare(b.isoDate || '') || (a.time || '').localeCompare(b.time || ''));
+
+  const net = rows.reduce((s, l) => s + (l.action === 'use' ? -ledgerQtyNum(l.qty) : ledgerQtyNum(l.qty)), 0);
+  const opening = Math.round((Number(item.qty || 0) - net) * 100) / 100;
+
+  const entries = [];
+  let bal = opening;
+  if (opening !== 0 || rows.length === 0) {
+    entries.push({ date: item.purchased && item.purchased !== '-' ? item.purchased : '', buy: opening > 0 ? opening : '', use: '', bal: opening, memo: '기초 재고', who: '' });
+  }
+  rows.forEach((l) => {
+    const amt = ledgerQtyNum(l.qty);
+    bal = Math.round((bal + (l.action === 'use' ? -amt : amt)) * 100) / 100;
+    entries.push({
+      date: l.isoDate || '',
+      buy: l.action === 'use' ? '' : amt,
+      use: l.action === 'use' ? amt : '',
+      bal,
+      memo: l.memo || (l.action === 'add' ? '입고' : ''),
+      who: (l.handler || '').replace(/^의장_/, ''),
+    });
+  });
+  const MIN_ROWS = 15;
+  while (entries.length < MIN_ROWS) entries.push(null);
+
+  return (
+    <div className="ledger-sheet">
+      <h2 className="ledger-title">소 모 품 대 장</h2>
+      <div className="ledger-no">No</div>
+      <table className="ledger-table">
+        <colgroup>
+          <col style={{ width: '14%' }} /><col style={{ width: '12%' }} /><col style={{ width: '12%' }} />
+          <col style={{ width: '12%' }} /><col style={{ width: '22%' }} /><col style={{ width: '14%' }} /><col style={{ width: '14%' }} />
+        </colgroup>
+        <tbody>
+          <tr className="hrow">
+            <th colSpan="2">품 명</th><th colSpan="2">규 격</th><th>단 위</th><th colSpan="2">용 도</th>
+          </tr>
+          <tr className="vrow">
+            <td colSpan="2">{item.name}</td>
+            <td colSpan="2">{item.spec || item.code || ''}</td>
+            <td>{item.unit}</td>
+            <td colSpan="2">{item.purpose && item.purpose !== '-' ? item.purpose : item.category}</td>
+          </tr>
+          <tr className="hrow">
+            <th rowSpan="2">년월일</th><th rowSpan="2">구입량</th><th rowSpan="2">사용량</th>
+            <th rowSpan="2">보유량</th><th rowSpan="2">비 고</th><th colSpan="2">확 인</th>
+          </tr>
+          <tr className="hrow"><th>작 성</th><th>승 인</th></tr>
+          {entries.map((e, i) => (
+            <tr key={i}>
+              <td>{e?.date}</td><td>{e?.buy}</td><td>{e?.use}</td><td>{e == null ? '' : e.bal}</td>
+              <td className="memo">{e?.memo}</td><td>{e?.who}</td><td></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="ledger-docno">FITI-P006-01-01(Rev.0)</div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ labels */
+function LabelsView({ inventory, labelKey, onChangeLabelKey }) {
+  const targets = inventory.filter((it) => it.type !== 'equipment');
+  const selected = inventory.find((it) => it.key === labelKey) || targets[0];
+  return (
+    <div className="view label-layout">
+      <div>
+        <div className="vhead">라벨</div>
+        <p className="vsub">시약병·소모품용 라벨입니다. 항목을 선택하면 우측에 미리보기가 표시됩니다.</p>
+        <div className="rows" style={{ marginTop: 10 }}>
+          {targets.map((it) => (
+            <button key={it.key} className={`row ${selected?.key === it.key ? 'sel' : ''}`} onClick={() => onChangeLabelKey(it.key)}>
+              <div className={`edge cat-${it.type}`} />
+              <div className="body"><b>{it.name}</b><div className="meta">{CAT_LABEL[it.type]} · {it.qtyText}</div></div>
+              <span className={`pin ${pinTone(it.status)}`}>{friendlyPin(it)}</span>
             </button>
           ))}
         </div>
-      </Panel>
-      <Panel
-        title="출력 미리보기"
-        icon={Tag}
-        action={<button className="icon-text primary" onClick={() => window.print()}><Printer size={17} />라벨 출력</button>}
-      >
-        {selected ? <LabelPreview item={selected} /> : <EmptyState icon={Tag} title="라벨 대상이 없습니다" text="먼저 화학물질 또는 소모품을 등록하세요." />}
-      </Panel>
+      </div>
+      <div className="label-panel">
+        <div className="label-panel-head">
+          <b>미리보기</b>
+          <button className="btn primary" onClick={() => window.print()}><Printer size={16} />라벨 출력</button>
+        </div>
+        {selected ? <LabelPreview item={selected} /> : <EmptyState title="라벨 대상이 없습니다" text="약품 또는 소모품을 먼저 등록하세요." />}
+      </div>
     </div>
   );
 }
 
+/* ------------------------------------------------------------------ settings */
 function SettingsView({ currentUser, settings, setCurrentUser, onSaveSettings, onExport }) {
   const [draft, setDraft] = useState(settings);
-
   useEffect(() => setDraft(settings), [settings]);
-
   return (
-    <div className="view-stack settings-view">
-      <section className="two-column">
-        <Panel title="사용자" icon={UserRound}>
-          <div className="profile-card">
-            <div className="avatar-lg">{currentUser.slice(-3)}</div>
-            <div>
-              <span>현재 담당자</span>
-              <strong>{currentUser}</strong>
-            </div>
-          </div>
-          <div className="member-grid small">
-            {TEAM_MEMBERS.map((member) => (
-              <button key={member} className={member === currentUser ? 'active' : ''} onClick={() => setCurrentUser(member)}>
-                {member}
-              </button>
-            ))}
-          </div>
-        </Panel>
+    <div className="view">
+      <div className="vhead">설정</div>
+      <p className="vsub">담당자와 팀 공통 기준을 설정합니다.</p>
 
-        <Panel title="팀 공통 임계치" icon={Bell}>
-          <div className="form-grid one">
-            <label>
-              <span>화학물질 폐기 경고 D-day</span>
-              <input type="number" min="1" max="365" value={draft.disposalDays || 90} onChange={(event) => setDraft({ ...draft, disposalDays: Number(event.target.value) })} />
-            </label>
-            <label>
-              <span>저재고 임계치</span>
-              <input type="number" min="0" max="100" value={draft.lowQty ?? 1} onChange={(event) => setDraft({ ...draft, lowQty: Number(event.target.value) })} />
-            </label>
-            <label>
-              <span>라벨 기본 사용기간</span>
-              <input type="number" min="30" max="1825" value={draft.labelGraceDays || 365} onChange={(event) => setDraft({ ...draft, labelGraceDays: Number(event.target.value) })} />
-            </label>
-          </div>
-          <button className="icon-text primary full" onClick={() => onSaveSettings(draft)}><Save size={18} />팀 설정 저장</button>
-        </Panel>
-      </section>
-
-      <Panel title="데이터와 운영 기준" icon={Database}>
-        <div className="settings-actions">
-          <button className="icon-text ghost" onClick={onExport}><Download size={18} />JSON 백업 다운로드</button>
-          <button className="icon-text ghost" onClick={() => window.print()}><Printer size={18} />현재 화면 인쇄</button>
+      <div className="card">
+        <div className="card-title">담당자</div>
+        <div className="profile">
+          <div className="av lg">{currentUser.slice(-3)}</div>
+          <div><span>지금 담당자</span><strong>{currentUser.replace(/^의장_/, '')}</strong></div>
         </div>
-        <div className="rules-grid compact-rules">
-          {MANAGEMENT_RULES.map((rule) => (
-            <article className="rule-card" key={rule.id}>
-              <span>{rule.issue}</span>
-              <h3>{rule.title}</h3>
-            </article>
+        <div className="member-grid small">
+          {TEAM_MEMBERS.map((m) => (
+            <button key={m} className={m === currentUser ? 'active' : ''} onClick={() => setCurrentUser(m)}>{m.replace(/^의장_/, '')}</button>
           ))}
         </div>
-      </Panel>
+      </div>
+
+      <div className="card">
+        <div className="card-title">팀 공통 기준</div>
+        <div className="form-grid">
+          <label><span>약품 폐기 경고 (개봉 후 일수)</span>
+            <input type="number" min="1" max="365" value={draft.disposalDays || 90}
+              onChange={(e) => setDraft({ ...draft, disposalDays: Number(e.target.value) })} /></label>
+          <label><span>저재고 기준 (이하면 알림)</span>
+            <input type="number" min="0" max="100" value={draft.lowQty ?? 1}
+              onChange={(e) => setDraft({ ...draft, lowQty: Number(e.target.value) })} /></label>
+        </div>
+        <button className="btn primary full" onClick={() => onSaveSettings(draft)}>저장</button>
+      </div>
+
+      <div className="card">
+        <div className="card-title">데이터</div>
+        <div className="settings-actions">
+          <button className="btn ghost" onClick={onExport}><Download size={16} />JSON 백업</button>
+          <button className="btn ghost" onClick={() => window.print()}><Printer size={16} />화면 인쇄</button>
+        </div>
+      </div>
     </div>
   );
 }
 
-function InventoryDrawer({ item, currentUser, categories, onClose, onMove, onSave, onDelete }) {
-  const [tab, setTab] = useState('move');
+/* ------------------------------------------------------------------ quick-log */
+function QuickLogSheet({ item, logs, categories, zones, chemCats, onAddZone, onAddChemCat, onAddCategory, isFav, onToggleFav, onClose, onMove, onSave, onDelete, onOpenLabel }) {
+  const [mode, setMode] = useState(item.qty <= 0 ? 'in' : 'out');
+  const step = stepFor(item.unit);
+  const [amount, setAmount] = useState(step);
+  const [memo, setMemo] = useState('');
+  const [showDetail, setShowDetail] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [edit, setEdit] = useState(null);
+  const presets = [step, step * 2, step * 4].map((v) => round(v));
+  const history = itemHistory(item, logs);
+  const over = mode === 'out' && Number(amount || 0) > Number(item.qty || 0);
 
   useEffect(() => {
-    if (!item) return;
-    if (item.type === 'equipment') {
-      const part = item.source;
-      setEdit({ ...part, have: item.qty, need: item.need });
-    } else {
-      setEdit({ ...item.source });
-    }
-    setTab('move');
+    if (item.type === 'equipment') setEdit({ ...item.source, have: item.qty, need: item.need });
+    else setEdit({ ...item.source });
   }, [item]);
 
-  if (!item) return null;
-
-  function updateEdit(field, value) {
-    setEdit((current) => ({ ...current, [field]: value }));
+  function bump(d) { setAmount((a) => round(Math.max(0, Number(a || 0) + d * step))); }
+  function commit() {
+    const amt = Number(amount || 0);
+    if (amt <= 0 || over) return;
+    onMove({ item, direction: mode, amount: amt, unit: item.unit, memo });
   }
-
-  function handleSave() {
-    if (item.type === 'chemical') onSave('chemical', edit);
-    if (item.type === 'consumable') onSave('consumable', { ...edit, catId: edit.catId || item.catId });
+  function saveEdit() {
     if (item.type === 'equipment') {
       const equipment = { ...item.equipment, parts: [...(item.equipment.parts || [])] };
       equipment.parts[item.partIndex] = { ...equipment.parts[item.partIndex], ...edit };
       onSave('equipment', equipment);
+    } else {
+      onSave(item.type, edit);
     }
   }
 
   return (
-    <div className="drawer-backdrop" onMouseDown={onClose}>
-      <aside className="drawer" onMouseDown={(event) => event.stopPropagation()}>
-        <header className="drawer-header">
-          <div>
-            <StatusPill status={item.status} label={item.reason} />
-            <h2>{item.name}</h2>
-            <span>{item.typeLabel} · {item.category}</span>
+    <div className="scrim show" onMouseDown={onClose}>
+      <section className="sheet show" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="grab" />
+        <div className="sheet-scroll">
+          <div className="sh-head">
+            <div className={`ic cat-${item.type}`}><ItemIcon type={item.type} size={22} /></div>
+            <div><b>{item.name}</b><div className="meta">{CAT_LABEL[item.type]} · {item.category} · 마지막: {lastActivity(item, logs)}</div></div>
+            <button className={`sh-fav ${isFav ? 'on' : ''}`} onClick={onToggleFav} aria-label={isFav ? '즐겨찾기 해제' : '즐겨찾기 추가'}>
+              <Star size={18} />
+            </button>
+            <button className="sh-close" onClick={onClose} aria-label="닫기"><X size={17} /></button>
           </div>
-          <button className="icon-only" onClick={onClose} aria-label="닫기"><X size={20} /></button>
-        </header>
 
-        <div className="drawer-tabs">
-          <button className={tab === 'move' ? 'active' : ''} onClick={() => setTab('move')}>입출고</button>
-          <button className={tab === 'info' ? 'active' : ''} onClick={() => setTab('info')}>정보 수정</button>
-          <button className={tab === 'audit' ? 'active' : ''} onClick={() => setTab('audit')}>점검</button>
-        </div>
+          <div className="readout"><span className="k">남은 양</span>
+            <span className="v">{round(item.qty)}<small>{item.unit}</small></span></div>
 
-        {tab === 'move' && (
-          <MovementForm item={item} currentUser={currentUser} onSubmit={onMove} />
-        )}
+          <div className="toggle">
+            <button className={`out ${mode === 'out' ? 'on' : ''}`} onClick={() => setMode('out')}><Minus size={16} />출고</button>
+            <button className={`in ${mode === 'in' ? 'on' : ''}`} onClick={() => setMode('in')}><Plus size={16} />입고</button>
+          </div>
 
-        {tab === 'info' && edit && (
-          <div className="drawer-body">
-            {item.type === 'chemical' && (
-              <ChemicalEditor edit={edit} updateEdit={updateEdit} />
-            )}
-            {item.type === 'consumable' && (
-              <ConsumableEditor edit={edit} updateEdit={updateEdit} categories={categories} />
-            )}
-            {item.type === 'equipment' && (
-              <EquipmentPartEditor edit={edit} updateEdit={updateEdit} />
-            )}
-            <div className="drawer-actions">
-              <button className="icon-text primary" onClick={handleSave}><Save size={18} />저장</button>
-              {item.type !== 'equipment' && <button className="icon-text danger" onClick={() => onDelete(item)}><Trash2 size={18} />삭제</button>}
+          <div className="stepper">
+            <button onClick={() => bump(-1)} aria-label="줄이기"><Minus size={22} /></button>
+            <div className="amt"><input value={amount} inputMode="decimal"
+              onChange={(e) => setAmount(e.target.value)} /><span>{item.unit}</span></div>
+            <button onClick={() => bump(1)} aria-label="늘리기"><Plus size={22} /></button>
+          </div>
+          <div className="presets">
+            {presets.map((v) => <button key={v} onClick={() => setAmount(v)}>{v} {item.unit}</button>)}
+          </div>
+
+          {over && (
+            <div className="over-warn">
+              현재 재고({round(item.qty)} {item.unit})보다 많습니다.
+              <button onClick={() => setAmount(round(item.qty))}>재고 전량 {round(item.qty)} {item.unit}</button>
             </div>
-          </div>
-        )}
+          )}
 
-        {tab === 'audit' && (
-          <div className="drawer-body audit-list">
-            <AuditItem ok={item.status !== 'critical'} label="긴급 상태 확인" detail={item.reason} />
-            <AuditItem ok={item.qty > 0} label="보유 수량" detail={item.qtyText} />
-            {item.type === 'chemical' && (
-              <>
-                <AuditItem ok={item.purchased && item.purchased !== '-'} label="입고일자" detail={formatDate(item.purchased)} />
-                <AuditItem ok={item.owner && item.owner !== '-'} label="취급자" detail={item.owner || '미기록'} />
-                <AuditItem ok={Boolean(item.storageZone || item.category)} label="보관구역" detail={item.storageZone || item.category} />
-                <AuditItem ok={Boolean(item.msds)} label="MSDS" detail={item.msds || '등록 필요'} />
-              </>
-            )}
-            {item.type === 'consumable' && (
-              <AuditItem ok={Boolean(item.location || item.code)} label="식별 정보" detail={item.location || item.code || '위치/품목코드 등록 권장'} />
-            )}
-          </div>
-        )}
-      </aside>
-    </div>
-  );
-}
+          <textarea className="memo" rows="2" value={memo} onChange={(e) => setMemo(e.target.value)}
+            placeholder="시험번호·메모 (선택) — 예: 24-시험-0412" />
 
-function MovementForm({ item, currentUser, onSubmit }) {
-  const [direction, setDirection] = useState('out');
-  const [amount, setAmount] = useState(1);
-  const [unit, setUnit] = useState(item.unit || 'EA');
-  const [memo, setMemo] = useState('');
+          <button className="more" onClick={() => setShowDetail((s) => !s)}>
+            <span>상세 정보 — 폐기일·시험실·이력</span>
+            <ChevronDown size={18} style={{ transform: showDetail ? 'rotate(180deg)' : '', transition: 'transform .2s' }} />
+          </button>
 
-  useEffect(() => {
-    setUnit(item.unit || 'EA');
-    setAmount(1);
-    setMemo('');
-  }, [item]);
-
-  return (
-    <div className="drawer-body">
-      <div className="stock-summary">
-        <span>현재 수량</span>
-        <strong className="mono">{item.qtyText}</strong>
-      </div>
-      <div className="direction-toggle">
-        <button className={direction === 'out' ? 'active out' : ''} onClick={() => setDirection('out')}>출고</button>
-        <button className={direction === 'in' ? 'active in' : ''} onClick={() => setDirection('in')}>입고</button>
-      </div>
-      <div className="form-grid two">
-        <label>
-          <span>수량</span>
-          <input type="number" min="0" step="1" value={amount} onChange={(event) => setAmount(event.target.value)} />
-        </label>
-        <label>
-          <span>단위</span>
-          <input value={unit} onChange={(event) => setUnit(event.target.value)} />
-        </label>
-      </div>
-      <label className="field-block">
-        <span>메모</span>
-        <textarea rows="4" value={memo} onChange={(event) => setMemo(event.target.value)} placeholder="시험번호, 목적, 비고를 입력하세요." />
-      </label>
-      <button
-        className={`icon-text full ${direction === 'out' ? 'danger' : 'success'}`}
-        onClick={() => onSubmit({ item, direction, amount: Number(amount), unit, memo, handler: currentUser })}
-      >
-        {direction === 'out' ? <Package size={18} /> : <PackagePlus size={18} />}
-        {direction === 'out' ? '출고 저장' : '입고 저장'}
-      </button>
-    </div>
-  );
-}
-
-function ChemicalEditor({ edit, updateEdit }) {
-  return (
-    <div className="form-grid one">
-      <label><span>약품명</span><input value={edit.name || ''} onChange={(event) => updateEdit('name', event.target.value)} /></label>
-      <div className="form-grid two tight">
-        <label><span>분류</span><select value={edit.cat || '기타'} onChange={(event) => updateEdit('cat', event.target.value)}>{CHEMICAL_CATEGORIES.map((cat) => <option key={cat}>{cat}</option>)}</select></label>
-        <label><span>취급자</span><select value={edit.handler || '-'} onChange={(event) => updateEdit('handler', event.target.value)}><option>-</option>{TEAM_MEMBERS.map((member) => <option key={member}>{member}</option>)}</select></label>
-      </div>
-      <div className="form-grid two tight">
-        <label><span>수량</span><input value={edit.qty || ''} onChange={(event) => updateEdit('qty', event.target.value)} /></label>
-        <label><span>위험도</span><input value={edit.hazardClass || ''} onChange={(event) => updateEdit('hazardClass', event.target.value)} placeholder="예: 부식성, 인화성" /></label>
-      </div>
-      <div className="form-grid three tight">
-        <label><span>입고일</span><input type="date" value={edit.purchased !== '-' ? edit.purchased || '' : ''} onChange={(event) => updateEdit('purchased', event.target.value || '-')} /></label>
-        <label><span>개봉일</span><input type="date" value={edit.opened !== '-' ? edit.opened || '' : ''} onChange={(event) => { updateEdit('opened', event.target.value || '-'); if (event.target.value && (!edit.disposed || edit.disposed === '-')) updateEdit('disposed', addDays(event.target.value, 365)); }} /></label>
-        <label><span>폐기예정</span><input type="date" value={edit.disposed !== '-' ? edit.disposed || '' : ''} onChange={(event) => updateEdit('disposed', event.target.value || '-')} /></label>
-      </div>
-      <label><span>보관구역</span><select value={edit.storageZone || ''} onChange={(event) => updateEdit('storageZone', event.target.value)}><option value="">선택</option>{STORAGE_ZONES.map((zone) => <option key={zone}>{zone}</option>)}</select></label>
-      <label><span>사용용도</span><textarea rows="3" value={edit.purpose || ''} onChange={(event) => updateEdit('purpose', event.target.value)} /></label>
-      <label><span>MSDS URL/파일명</span><input value={edit.msds || ''} onChange={(event) => updateEdit('msds', event.target.value)} /></label>
-    </div>
-  );
-}
-
-function ConsumableEditor({ edit, updateEdit, categories }) {
-  return (
-    <div className="form-grid one">
-      <label><span>품명</span><input value={edit.n || ''} onChange={(event) => updateEdit('n', event.target.value)} /></label>
-      <div className="form-grid two tight">
-        <label><span>카테고리</span><select value={edit.catId || 'etc'} onChange={(event) => updateEdit('catId', event.target.value)}>{categories.filter((cat) => cat.type !== 'equipment').map((cat) => <option key={cat.id} value={cat.id}>{cat.label}</option>)}</select></label>
-        <label><span>세부 분류</span><input value={edit.cat || ''} onChange={(event) => updateEdit('cat', event.target.value)} /></label>
-      </div>
-      <div className="form-grid three tight">
-        <label><span>수량</span><input type="number" value={edit.qty ?? 0} onChange={(event) => updateEdit('qty', Number(event.target.value))} /></label>
-        <label><span>단위</span><input value={edit.unit || 'EA'} onChange={(event) => updateEdit('unit', event.target.value)} /></label>
-        <label><span>품목코드</span><input value={edit.code || ''} onChange={(event) => updateEdit('code', event.target.value)} /></label>
-      </div>
-      <label><span>규격</span><input value={edit.spec || ''} onChange={(event) => updateEdit('spec', event.target.value)} /></label>
-      <label><span>위치</span><input value={edit.location || ''} onChange={(event) => updateEdit('location', event.target.value)} placeholder="예: 시약장 하단 노란 파일 옆" /></label>
-      <label><span>용도/비고</span><textarea rows="3" value={edit.purpose || ''} onChange={(event) => updateEdit('purpose', event.target.value)} /></label>
-    </div>
-  );
-}
-
-function EquipmentPartEditor({ edit, updateEdit }) {
-  return (
-    <div className="form-grid one">
-      <label><span>부품명</span><input value={edit.n || ''} onChange={(event) => updateEdit('n', event.target.value)} /></label>
-      <div className="form-grid three tight">
-        <label><span>필요 수량</span><input type="number" value={edit.need ?? 0} onChange={(event) => updateEdit('need', Number(event.target.value))} /></label>
-        <label><span>보유 수량</span><input type="number" value={edit.have ?? 0} onChange={(event) => updateEdit('have', Number(event.target.value))} /></label>
-        <label><span>단가</span><input type="number" value={edit.price ?? 0} onChange={(event) => updateEdit('price', Number(event.target.value))} /></label>
-      </div>
-      <label><span>품목코드</span><input value={edit.code || ''} onChange={(event) => updateEdit('code', event.target.value)} /></label>
-      <label><span>Serial</span><input value={edit.serial || ''} onChange={(event) => updateEdit('serial', event.target.value)} /></label>
-    </div>
-  );
-}
-
-function NewItemModal({ currentUser, categories, onClose, onSubmit }) {
-  const [form, setForm] = useState({
-    type: 'chemical',
-    name: '',
-    qty: 1,
-    unit: 'EA',
-    handler: currentUser,
-    cat: '기타',
-    catId: 'etc',
-    purchased: todayKey(),
-    opened: '',
-    disposed: '',
-    purpose: '',
-    storageZone: '',
-  });
-
-  function setField(field, value) {
-    setForm((current) => ({ ...current, [field]: value }));
-  }
-
-  function submit() {
-    if (!form.name.trim()) return;
-    onSubmit(form);
-  }
-
-  return (
-    <div className="drawer-backdrop modal-backdrop" onMouseDown={onClose}>
-      <section className="modal-card" onMouseDown={(event) => event.stopPropagation()}>
-        <header className="drawer-header">
-          <div>
-            <span className="eyebrow">New Inventory</span>
-            <h2>신규 항목 등록</h2>
-          </div>
-          <button className="icon-only" onClick={onClose}><X size={20} /></button>
-        </header>
-        <div className="drawer-body">
-          <SegmentedControl
-            value={form.type}
-            options={[{ id: 'chemical', label: '화학물질' }, { id: 'consumable', label: '소모품' }]}
-            onChange={(value) => setField('type', value)}
-          />
-          <div className="form-grid one">
-            <label><span>품명</span><input autoFocus value={form.name} onChange={(event) => setField('name', event.target.value)} /></label>
-            <div className="form-grid two tight">
-              <label><span>수량</span><input type="number" min="0" value={form.qty} onChange={(event) => setField('qty', Number(event.target.value))} /></label>
-              <label><span>단위</span><input value={form.unit} onChange={(event) => setField('unit', event.target.value)} /></label>
+          {showDetail && (
+            <div className="detail">
+              {!editing ? (
+                <>
+                  {item.photo && (
+                    <div className="item-photo"><img src={item.photo} alt={`${item.name} 사진`} /></div>
+                  )}
+                  <SpecList item={item} />
+                  <div className="label" style={{ margin: '14px 2px 8px' }}>입출고 이력</div>
+                  {history.length ? (
+                    <div className="hist">
+                      {history.map((l) => <LogRow key={l._docId || `${l.item}-${l.time}`} log={l} compact />)}
+                    </div>
+                  ) : <EmptyState small title="이력이 없습니다" text="첫 기록을 남겨보세요." />}
+                  <div className="dbtns">
+                    {item.type !== 'equipment' && (
+                      <button onClick={() => onOpenLabel(item)}><Tag size={16} />취급 라벨</button>
+                    )}
+                    <button onClick={() => setEditing(true)}><Pencil size={16} />정보 수정</button>
+                    <button className="danger" onClick={() => onDelete(item)}><Trash2 size={16} />삭제</button>
+                  </div>
+                </>
+              ) : (
+                <div className="edit-block">
+                  {edit && item.type === 'chemical' && <ChemicalEditor edit={edit} set={(f, v) => setEdit((c) => ({ ...c, [f]: v }))} chemCats={chemCats} zones={zones} onAddChemCat={onAddChemCat} onAddZone={onAddZone} />}
+                  {edit && item.type === 'consumable' && <ConsumableEditor edit={edit} set={(f, v) => setEdit((c) => ({ ...c, [f]: v }))} categories={categories} onAddCategory={onAddCategory} />}
+                  {edit && item.type === 'equipment' && <EquipmentEditor edit={edit} set={(f, v) => setEdit((c) => ({ ...c, [f]: v }))} />}
+                  <div className="dbtns">
+                    <button onClick={() => setEditing(false)}>취소</button>
+                    <button className="dark" onClick={saveEdit}><Check size={16} />저장</button>
+                  </div>
+                  {item.type !== 'equipment' && (
+                    <button className="del" onClick={() => onDelete(item)}><Trash2 size={15} />이 품목 삭제</button>
+                  )}
+                </div>
+              )}
             </div>
-            {form.type === 'chemical' ? (
-              <>
-                <div className="form-grid two tight">
-                  <label><span>분류</span><select value={form.cat} onChange={(event) => setField('cat', event.target.value)}>{CHEMICAL_CATEGORIES.map((cat) => <option key={cat}>{cat}</option>)}</select></label>
-                  <label><span>취급자</span><select value={form.handler} onChange={(event) => setField('handler', event.target.value)}>{TEAM_MEMBERS.map((member) => <option key={member}>{member}</option>)}</select></label>
-                </div>
-                <div className="form-grid three tight">
-                  <label><span>입고일</span><input type="date" value={form.purchased} onChange={(event) => setField('purchased', event.target.value)} /></label>
-                  <label><span>개봉일</span><input type="date" value={form.opened} onChange={(event) => { setField('opened', event.target.value); if (event.target.value) setField('disposed', addDays(event.target.value, 365)); }} /></label>
-                  <label><span>폐기예정</span><input type="date" value={form.disposed} onChange={(event) => setField('disposed', event.target.value)} /></label>
-                </div>
-                <label><span>보관구역</span><select value={form.storageZone} onChange={(event) => setField('storageZone', event.target.value)}><option value="">선택</option>{STORAGE_ZONES.map((zone) => <option key={zone}>{zone}</option>)}</select></label>
-              </>
-            ) : (
-              <>
-                <div className="form-grid two tight">
-                  <label><span>카테고리</span><select value={form.catId} onChange={(event) => setField('catId', event.target.value)}>{categories.filter((cat) => cat.type !== 'equipment').map((cat) => <option key={cat.id} value={cat.id}>{cat.label}</option>)}</select></label>
-                  <label><span>세부 분류</span><input value={form.cat} onChange={(event) => setField('cat', event.target.value)} /></label>
-                </div>
-                <label><span>위치</span><input value={form.location || ''} onChange={(event) => setField('location', event.target.value)} /></label>
-                <label><span>품목코드</span><input value={form.code || ''} onChange={(event) => setField('code', event.target.value)} /></label>
-              </>
-            )}
-            <label><span>사용용도/비고</span><textarea rows="3" value={form.purpose} onChange={(event) => setField('purpose', event.target.value)} /></label>
-          </div>
-          <button className="icon-text primary full" onClick={submit}><Plus size={18} />등록</button>
+          )}
+
+          {!editing && (
+            <button className={`confirm ${mode === 'in' ? 'in' : ''}`} onClick={commit} disabled={over}>
+              {over ? '재고 부족' : mode === 'out' ? '출고 기록' : '입고 기록'}
+            </button>
+          )}
         </div>
       </section>
     </div>
   );
 }
 
+function SpecList({ item }) {
+  let rows = [];
+  if (item.type === 'chemical') {
+    rows = [
+      ['입고일', formatDate(item.purchased)], ['개봉일', formatDate(item.opened)],
+      ['폐기예정', disposalText(item)], ['시험실', item.storageZone || '미지정'],
+      ['취급자', item.owner], ['위험도', item.hazardClass || '미지정'], ['사용용도', item.purpose || '미기록'],
+      ['비고', item.note || '-'],
+    ];
+  } else if (item.type === 'consumable') {
+    rows = [
+      ['품목코드', item.code || '미입력'], ['규격', item.spec || '미입력'],
+      ['위치', item.location || '미입력'], ['용도', item.purpose || '미기록'],
+    ];
+  } else {
+    rows = [
+      ['장비', item.category], ['필요/보유', `${item.need} / ${item.qty}`],
+      ['품목코드', item.code || '-'], ['Serial', item.serial || '-'],
+    ];
+  }
+  return (
+    <dl className="spec">
+      {rows.map(([k, v]) => {
+        const warn = String(v).includes('지났') || v === '미지정' || v === '미입력' || v === '미기록';
+        return <div key={k} className="spec-row"><dt>{k}</dt><dd className={warn ? 'warnv' : ''}>{v}</dd></div>;
+      })}
+    </dl>
+  );
+}
+
+function disposalText(item) {
+  const left = daysUntil(item.disposed);
+  if (left === null) return formatDate(item.disposed);
+  if (left < 0) return `${Math.abs(left)}일 경과`;
+  return `D-${left} (${item.disposed})`;
+}
+
+/* ------------------------------------------------------------------ editors */
+function ChemicalEditor({ edit, set, chemCats = CHEMICAL_CATEGORIES, zones = STORAGE_ZONES, onAddChemCat, onAddZone }) {
+  return (
+    <div className="form-grid">
+      <label><span>약품명</span><input value={edit.name || ''} onChange={(e) => set('name', e.target.value)} /></label>
+      <div className="grid-2">
+        <label><span>분류</span><SelectAddable value={edit.cat || '기타'} onChange={(v) => set('cat', v)} options={chemCats} onAdd={onAddChemCat} addLabel="+ 새 분류 추가" /></label>
+        <label><span>취급자</span><select value={edit.handler || '-'} onChange={(e) => set('handler', e.target.value)}><option>-</option>{TEAM_MEMBERS.map((m) => <option key={m}>{m}</option>)}</select></label>
+      </div>
+      <div className="grid-2">
+        <label><span>수량</span><input value={edit.qty || ''} onChange={(e) => set('qty', e.target.value)} /></label>
+        <label><span>위험도</span><input value={edit.hazardClass || ''} onChange={(e) => set('hazardClass', e.target.value)} placeholder="예: 부식성" /></label>
+      </div>
+      <div className="grid-3">
+        <label><span>입고일</span><input type="date" value={edit.purchased !== '-' ? edit.purchased || '' : ''} onChange={(e) => set('purchased', e.target.value || '-')} /></label>
+        <label><span>개봉일</span><input type="date" value={edit.opened !== '-' ? edit.opened || '' : ''} onChange={(e) => { set('opened', e.target.value || '-'); if (e.target.value && (!edit.disposed || edit.disposed === '-')) set('disposed', addDays(e.target.value, 365)); }} /></label>
+        <label><span>폐기예정</span><input type="date" value={edit.disposed !== '-' ? edit.disposed || '' : ''} onChange={(e) => set('disposed', e.target.value || '-')} /></label>
+      </div>
+      <label><span>시험실</span><SelectAddable value={edit.storageZone || ''} onChange={(v) => set('storageZone', v)} options={zones} placeholder="선택" onAdd={onAddZone} addLabel="+ 새 시험실 추가" /></label>
+      <label><span>사용용도</span><textarea rows="2" value={edit.purpose || ''} onChange={(e) => set('purpose', e.target.value)} /></label>
+      <label><span>비고</span><input value={edit.note || ''} onChange={(e) => set('note', e.target.value)} placeholder="예: 라벨 미부착, 폐기 확인" /></label>
+    </div>
+  );
+}
+
+function ConsumableEditor({ edit, set, categories, onAddCategory }) {
+  return (
+    <div className="form-grid">
+      <label><span>품명</span><input value={edit.n || ''} onChange={(e) => set('n', e.target.value)} /></label>
+      <div className="grid-2">
+        <label><span>카테고리</span><SelectAddable value={edit.catId || 'etc'} onChange={(v) => set('catId', v)} options={categories.filter((c) => c.type !== 'equipment').map((c) => ({ value: c.id, label: c.label }))} onAdd={onAddCategory} addLabel="+ 새 카테고리 추가" /></label>
+        <label><span>세부 분류</span><input value={edit.cat || ''} onChange={(e) => set('cat', e.target.value)} /></label>
+      </div>
+      <div className="grid-3">
+        <label><span>수량</span><input type="number" value={edit.qty ?? 0} onChange={(e) => set('qty', Number(e.target.value))} /></label>
+        <label><span>단위</span><input value={edit.unit || 'EA'} onChange={(e) => set('unit', e.target.value)} /></label>
+        <label><span>품목코드</span><input value={edit.code || ''} onChange={(e) => set('code', e.target.value)} /></label>
+      </div>
+      <label><span>위치</span><input value={edit.location || ''} onChange={(e) => set('location', e.target.value)} placeholder="예: 시약장 하단" /></label>
+      <label><span>용도·비고</span><textarea rows="2" value={edit.purpose || ''} onChange={(e) => set('purpose', e.target.value)} /></label>
+    </div>
+  );
+}
+
+function EquipmentEditor({ edit, set }) {
+  return (
+    <div className="form-grid">
+      <label><span>부품명</span><input value={edit.n || ''} onChange={(e) => set('n', e.target.value)} /></label>
+      <div className="grid-3">
+        <label><span>필요</span><input type="number" value={edit.need ?? 0} onChange={(e) => set('need', Number(e.target.value))} /></label>
+        <label><span>보유</span><input type="number" value={edit.have ?? 0} onChange={(e) => set('have', Number(e.target.value))} /></label>
+        <label><span>단가</span><input type="number" value={edit.price ?? 0} onChange={(e) => set('price', Number(e.target.value))} /></label>
+      </div>
+      <label><span>품목코드</span><input value={edit.code || ''} onChange={(e) => set('code', e.target.value)} /></label>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ new item */
+function NewItemModal({ currentUser, categories, equipmentList = [], zones = [], chemCats = [], onAddZone, onAddChemCat, onAddCategory, onAddEquipment, onClose, onSubmit }) {
+  const [form, setForm] = useState({
+    type: 'chemical', name: '', qty: 1, unit: 'EA', handler: currentUser, cat: '기타',
+    catId: 'etc', purchased: todayKey(), opened: '', disposed: '', purpose: '', storageZone: '',
+    location: '', code: '', photo: '', need: 1, serial: '', equipId: equipmentList[0]?._docId || '',
+  });
+  const set = (f, v) => setForm((c) => ({ ...c, [f]: v }));
+  async function handlePhoto(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try { set('photo', await readImageResized(file)); } catch { /* 변환 실패 시 무시 */ }
+  }
+  function submit() {
+    if (!form.name.trim()) return;
+    if (form.type === 'equipment' && !form.equipId) return;
+    onSubmit(form);
+  }
+  const isEquip = form.type === 'equipment';
+  return (
+    <div className="scrim show modal" onMouseDown={onClose}>
+      <section className="modal-card" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="sh-head">
+          <div className="modal-head-tt"><span className="eyebrow">새로 등록</span><b>품목 추가</b></div>
+          <button className="sh-close" onClick={onClose} aria-label="닫기"><X size={18} /></button>
+        </div>
+        <div className="modal-body">
+          <Segmented
+            value={form.type}
+            options={[{ id: 'chemical', label: '약품' }, { id: 'consumable', label: '일반 소모품' }, { id: 'equipment', label: '장비 소모품' }]}
+            onChange={(v) => set('type', v)}
+          />
+          <div className="form-grid">
+            {isEquip && (
+              <label><span>장비 선택</span>
+                <SelectAddable
+                  value={form.equipId} onChange={(v) => set('equipId', v)}
+                  options={equipmentList.map((eq) => ({ value: eq._docId, label: eq.name }))}
+                  placeholder={equipmentList.length ? null : '등록된 장비 없음'}
+                  onAdd={onAddEquipment} addLabel="+ 새 장비 추가"
+                />
+              </label>
+            )}
+            <label><span>{isEquip ? '소모품명 (예: Outer Filter QUARTZ)' : '품명'}</span><input autoFocus value={form.name} onChange={(e) => set('name', e.target.value)} /></label>
+            {isEquip ? (
+              <>
+                <div className="grid-2">
+                  <label><span>필요 수량</span><input type="number" min="0" value={form.need} onChange={(e) => set('need', Number(e.target.value))} /></label>
+                  <label><span>보유 수량</span><input type="number" min="0" value={form.qty} onChange={(e) => set('qty', Number(e.target.value))} /></label>
+                </div>
+                <div className="grid-2">
+                  <label><span>품목코드</span><input value={form.code} onChange={(e) => set('code', e.target.value)} /></label>
+                  <label><span>SERIAL</span><input value={form.serial} onChange={(e) => set('serial', e.target.value)} /></label>
+                </div>
+              </>
+            ) : (
+              <div className="grid-2">
+                <label><span>수량</span><input type="number" min="0" value={form.qty} onChange={(e) => set('qty', Number(e.target.value))} /></label>
+                <label><span>단위</span><input value={form.unit} onChange={(e) => set('unit', e.target.value)} /></label>
+              </div>
+            )}
+            {form.type === 'chemical' && (
+              <>
+                <div className="grid-2">
+                  <label><span>분류</span><SelectAddable value={form.cat} onChange={(v) => set('cat', v)} options={chemCats} onAdd={onAddChemCat} addLabel="+ 새 분류 추가" /></label>
+                  <label><span>취급자</span><select value={form.handler} onChange={(e) => set('handler', e.target.value)}>{TEAM_MEMBERS.map((m) => <option key={m}>{m}</option>)}</select></label>
+                </div>
+                <div className="grid-2">
+                  <label><span>입고일</span><input type="date" value={form.purchased} onChange={(e) => set('purchased', e.target.value)} /></label>
+                  <label><span>개봉일</span><input type="date" value={form.opened} onChange={(e) => { set('opened', e.target.value); if (e.target.value) set('disposed', addDays(e.target.value, 365)); }} /></label>
+                </div>
+                <label><span>시험실</span><SelectAddable value={form.storageZone} onChange={(v) => set('storageZone', v)} options={zones} placeholder="선택" onAdd={onAddZone} addLabel="+ 새 시험실 추가" /></label>
+              </>
+            )}
+            {form.type === 'consumable' && (
+              <>
+                <div className="grid-2">
+                  <label><span>카테고리</span><SelectAddable value={form.catId} onChange={(v) => set('catId', v)} options={categories.filter((c) => c.type !== 'equipment').map((c) => ({ value: c.id, label: c.label }))} onAdd={onAddCategory} addLabel="+ 새 카테고리 추가" /></label>
+                  <label><span>품목코드</span><input value={form.code} onChange={(e) => set('code', e.target.value)} /></label>
+                </div>
+                <label><span>위치</span><input value={form.location} onChange={(e) => set('location', e.target.value)} /></label>
+              </>
+            )}
+            <label><span>용도·비고</span><textarea rows="2" value={form.purpose} onChange={(e) => set('purpose', e.target.value)} /></label>
+            <div className="photo-field">
+              <span>사진</span>
+              {form.photo ? (
+                <div className="photo-preview">
+                  <img src={form.photo} alt="등록할 품목 사진" />
+                  <button type="button" className="photo-remove" onClick={() => set('photo', '')} aria-label="사진 삭제"><X size={15} /></button>
+                </div>
+              ) : (
+                <div className="photo-actions">
+                  <label className="photo-btn">
+                    <Camera size={17} />촬영
+                    <input type="file" accept="image/*" capture="environment" onChange={handlePhoto} hidden />
+                  </label>
+                  <label className="photo-btn ghost">
+                    <Plus size={16} />앨범에서 선택
+                    <input type="file" accept="image/*" onChange={handlePhoto} hidden />
+                  </label>
+                </div>
+              )}
+            </div>
+          </div>
+          <button className="confirm" onClick={submit}>등록</button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ label */
 function LabelPreview({ item }) {
   const code = item.key.replace(/[^a-zA-Z0-9]/g, '').slice(-12).toUpperCase();
-  const expireLeft = item.type === 'chemical' ? daysUntil(item.disposed) : null;
+  const left = item.type === 'chemical' ? daysUntil(item.disposed) : null;
+  const [qrUrl, setQrUrl] = useState('');
+
+  useEffect(() => {
+    // 폰 카메라로 찍으면 이 품목의 기록 시트가 바로 열리는 링크를 QR에 담습니다.
+    const link = `${window.location.origin}${window.location.pathname}?item=${encodeURIComponent(item.key)}`;
+    QRCode.toDataURL(link, { margin: 1, width: 220, errorCorrectionLevel: 'M' })
+      .then(setQrUrl)
+      .catch(() => setQrUrl(''));
+  }, [item.key]);
 
   return (
     <div className="label-print-area">
-      <div className="label-card-preview">
-        <div className="label-topline">
-          <strong>{item.type === 'chemical' ? '화학물질 취급 라벨' : '소모품 관리 라벨'}</strong>
-          <span>FITI 의장소재팀</span>
-        </div>
+      <div className="label-card">
+        <div className="label-top"><strong>{item.type === 'chemical' ? '약품 취급 라벨' : '소모품 관리 라벨'}</strong><span>FITI 의장소재팀</span></div>
         <h2>{item.name}</h2>
         <div className="label-grid">
           <span>관리코드</span><strong className="mono">{code}</strong>
           <span>분류</span><strong>{item.category}</strong>
           <span>수량</span><strong>{item.qtyText}</strong>
           <span>취급자</span><strong>{item.owner || '-'}</strong>
-          <span>입고일자</span><strong>{formatDate(item.purchased)}</strong>
-          <span>개봉일자</span><strong>{formatDate(item.opened)}</strong>
+          <span>입고일</span><strong>{formatDate(item.purchased)}</strong>
+          <span>개봉일</span><strong>{formatDate(item.opened)}</strong>
           <span>폐기예정</span><strong>{formatDate(item.disposed)}</strong>
-          <span>보관구역</span><strong>{item.storageZone || item.location || '-'}</strong>
+          <span>시험실</span><strong>{item.storageZone || item.location || '-'}</strong>
         </div>
         <div className="label-bottom">
-          <div className="pseudo-qr" aria-label={`관리코드 ${code}`}>{code}</div>
-          <div>
-            <StatusPill status={item.status} label={item.reason} />
-            <p>{item.purpose || '사용 목적 미기록'}</p>
-            {expireLeft !== null && <small>{expireLeft < 0 ? `폐기기한 ${Math.abs(expireLeft)}일 초과` : `폐기 D-${expireLeft}`}</small>}
-          </div>
+          {qrUrl
+            ? <img className="qr-img" src={qrUrl} alt={`QR — 찍으면 ${item.name} 기록 화면이 열려요`} />
+            : <div className="qr" aria-label={`관리코드 ${code}`}>{code}</div>}
+          <div><p>{item.purpose || '사용 목적 미기록'}</p>
+            <p className="qr-hint">휴대폰 카메라로 스캔하면 기록 화면이 열립니다.</p>
+            {left !== null && <small>{left < 0 ? `폐기기한 ${Math.abs(left)}일 지남` : `폐기 D-${left}`}</small>}</div>
         </div>
       </div>
     </div>
   );
 }
 
-function LogRow({ log, canDelete = false, onDelete }) {
-  const out = log.action === 'use';
+/* ------------------------------------------------------------------ shared bits */
+function ItemList({ items, logs, onOpen }) {
+  if (!items.length) return <EmptyState title="검색 결과가 없습니다" text="다른 검색어로 시도해 보세요." />;
   return (
-    <div className="log-row">
-      <div className={`log-icon ${out ? 'out' : 'in'}`}>{out ? '-' : '+'}</div>
-      <div>
-        <strong>{log.item}</strong>
-        <span>{log.handler || '-'} · {log.memo || '메모 없음'}</span>
-      </div>
-      <div className="log-side">
-        <StatusPill status={out ? 'critical' : 'ok'} label={`${out ? '출고' : '입고'} ${log.qty}`} />
-        <small>{log.time || log.isoDate}</small>
-      </div>
-      {canDelete && <button className="mini-action" onClick={onDelete}><Trash2 size={14} /></button>}
-    </div>
-  );
-}
-
-function KpiCard({ icon: Icon, label, value, sub, tone = 'neutral' }) {
-  return (
-    <article className={`kpi-card ${tone}`}>
-      <div className="kpi-icon"><Icon size={20} /></div>
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <small>{sub}</small>
-    </article>
-  );
-}
-
-function QualityMetric({ label, value, total, tone }) {
-  const pct = total ? Math.round((value / total) * 100) : 0;
-  return (
-    <div className="quality-row">
-      <div><span>{label}</span><strong>{formatNumber(value)}건</strong></div>
-      <div className="quality-bar"><i className={tone} style={{ width: `${pct}%` }} /></div>
-      <small>{pct}%</small>
-    </div>
-  );
-}
-
-function Panel({ title, icon: Icon, action, children }) {
-  return (
-    <section className="panel-card">
-      <header className="panel-header">
-        <div><Icon size={18} /><h2>{title}</h2></div>
-        {action}
-      </header>
-      {children}
-    </section>
-  );
-}
-
-function SegmentedControl({ value, options, onChange }) {
-  return (
-    <div className="segmented">
-      {options.map((option) => (
-        <button key={option.id} className={value === option.id ? 'active' : ''} onClick={() => onChange(option.id)}>
-          {option.label}
+    <div className="rows">
+      {items.map((it) => (
+        <button key={it.key} className={`row s-${it.status}`} onClick={() => onOpen(it.key)}>
+          <div className={`edge cat-${it.type}`} />
+          <div className="body">
+            <b>{it.name}</b>
+            <div className="meta"><span className={`tag cat-${it.type}`}>{CAT_LABEL[it.type]}</span>마지막: {lastActivity(it, logs)}</div>
+          </div>
+          <div className="stock">
+            <span className="q">{round(it.qty)}</span> <span className="u">{it.unit}</span>
+            <div><span className={`pin ${pinTone(it.status)}`}>{friendlyPin(it)}</span></div>
+          </div>
         </button>
       ))}
     </div>
   );
 }
 
-function StatusPill({ status, label }) {
-  const meta = STATUS_META[status] || STATUS_META.info;
-  return <span className={`status-pill ${meta.tone}`}>{label || meta.label}</span>;
-}
-
-function StatusDot({ online }) {
-  return online ? <Wifi className="status-dot online" size={17} /> : <WifiOff className="status-dot offline" size={17} />;
-}
-
-function ItemIcon({ type }) {
-  if (type === 'chemical') return <FlaskConical size={18} />;
-  if (type === 'equipment') return <Layers size={18} />;
-  return <Package size={18} />;
-}
-
-function EmptyState({ icon: Icon, title, text }) {
+function LogRow({ log, canDelete = false, onDelete, onOpen, compact = false }) {
+  const out = log.action === 'use';
+  const who = (log.handler || '-').replace(/^의장_/, '');
+  const clickable = typeof onOpen === 'function';
   return (
-    <div className="empty-state">
-      <Icon size={34} />
-      <strong>{title}</strong>
-      <span>{text}</span>
+    <div className={`hi ${clickable ? 'tap' : ''}`} onClick={clickable ? onOpen : undefined}>
+      <div className={`b ${out ? 'out' : 'in'}`}>{out ? '−' : '+'}</div>
+      <div><b>{log.item}</b><span>{compact ? `${who} · ${log.time || log.isoDate}` : (log.memo || '메모 없음')}</span></div>
+      <div className="hi-side">
+        <span className="q">{out ? '−' : '+'}{log.qty}</span>
+        {!compact && <small>{who} · {log.time || log.isoDate}</small>}
+      </div>
+      {canDelete && <button className="hi-del" onClick={(e) => { e.stopPropagation(); onDelete(); }} aria-label="삭제"><Trash2 size={14} /></button>}
+    </div>
+  );
+}
+
+function SearchBar({ value, onChange, placeholder }) {
+  return (
+    <div className="search">
+      <Search size={19} />
+      <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} autoComplete="off" />
+    </div>
+  );
+}
+
+function Segmented({ value, options, onChange }) {
+  return (
+    <div className="segmented">
+      {options.map((o) => (
+        <button key={o.id} className={value === o.id ? 'on' : ''} onClick={() => onChange(o.id)}>{o.label}</button>
+      ))}
+    </div>
+  );
+}
+
+// 옵션 목록 + 맨 아래 "+ 새 항목 추가". options는 문자열 배열 또는 {value,label} 배열.
+function SelectAddable({ value, onChange, options, onAdd, placeholder, addLabel = '+ 새 항목 추가' }) {
+  async function handle(e) {
+    const v = e.target.value;
+    if (v === '__add__') {
+      const name = window.prompt('새 항목 이름을 입력하세요');
+      if (name && name.trim() && onAdd) {
+        const picked = await onAdd(name.trim());
+        if (picked != null) onChange(picked);
+      }
+      return;
+    }
+    onChange(v);
+  }
+  return (
+    <select value={value} onChange={handle}>
+      {placeholder != null && <option value="">{placeholder}</option>}
+      {options.map((o) => (typeof o === 'string'
+        ? <option key={o} value={o}>{o}</option>
+        : <option key={o.value} value={o.value}>{o.label}</option>))}
+      {onAdd && <option value="__add__">{addLabel}</option>}
+    </select>
+  );
+}
+
+function ItemIcon({ type, size = 18 }) {
+  if (type === 'chemical') return <FlaskConical size={size} />;
+  if (type === 'equipment') return <Layers size={size} />;
+  return <Package size={size} />;
+}
+
+function EmptyState({ title, text, small = false }) {
+  return (
+    <div className={`empty ${small ? 'sm' : ''}`}>
+      <b>{title}</b><span>{text}</span>
     </div>
   );
 }
 
 function LoadingState() {
   return (
-    <div className="loading-state">
+    <div className="loading">
       <div className="loader" />
-      <strong>Firebase 데이터를 불러오는 중입니다</strong>
-      <span>화학물질, 소모품, CI 부품, 입출고 대장을 동기화하고 있습니다.</span>
+      <strong>재고를 불러오는 중입니다</strong>
+      <span>약품·소모품·부품·기록을 동기화하고 있습니다.</span>
     </div>
   );
 }
 
-function AuditItem({ ok, label, detail }) {
-  return (
-    <div className={`audit-item ${ok ? 'ok' : 'warn'}`}>
-      {ok ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
-      <div><strong>{label}</strong><span>{detail}</span></div>
-    </div>
-  );
-}
+function pinTone(status) { return status === 'critical' ? 'crit' : status === 'warning' ? 'warn' : 'ok'; }
+function round(n) { const x = Number(n || 0); return Number.isInteger(x) ? x : Math.round(x * 100) / 100; }

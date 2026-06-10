@@ -100,7 +100,7 @@ export function normalizeInventory({ chemicals = [], consumables = [], ciEquip =
     return {
       key: `chemical:${chemical._docId || chemical.id}`,
       type: 'chemical',
-      typeLabel: '화학물질',
+      typeLabel: '약품',
       source: chemical,
       docId: chemical._docId,
       id: chemical.id,
@@ -117,6 +117,7 @@ export function normalizeInventory({ chemicals = [], consumables = [], ciEquip =
       msds: chemical.msds || '',
       storageZone: chemical.storageZone || '',
       hazardClass: chemical.hazardClass || '',
+      note: chemical.note || '',
       photo: chemical.photo || '',
       ...status,
     };
@@ -128,7 +129,7 @@ export function normalizeInventory({ chemicals = [], consumables = [], ciEquip =
     return {
       key: `consumable:${item._docId || item.catId + ':' + item.id}`,
       type: 'consumable',
-      typeLabel: '소모품',
+      typeLabel: '일반 소모품',
       source: item,
       docId: item._docId,
       id: item.id,
@@ -154,7 +155,7 @@ export function normalizeInventory({ chemicals = [], consumables = [], ciEquip =
       return {
         key: `equipment:${equipment._docId || equipment.id}:${partIndex}`,
         type: 'equipment',
-        typeLabel: 'CI 부품',
+        typeLabel: '장비 소모품',
         source: part,
         equipment,
         parentDocId: equipment._docId,
@@ -217,16 +218,37 @@ export function calculateInsights(inventory, logs) {
   };
 }
 
+const CHOSEONG = ['ㄱ', 'ㄲ', 'ㄴ', 'ㄷ', 'ㄸ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅃ', 'ㅅ', 'ㅆ', 'ㅇ', 'ㅈ', 'ㅉ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ'];
+
+function choseongOf(text) {
+  let out = '';
+  for (const ch of text) {
+    const code = ch.charCodeAt(0);
+    if (code >= 0xac00 && code <= 0xd7a3) out += CHOSEONG[Math.floor((code - 0xac00) / 588)];
+    else out += ch;
+  }
+  return out;
+}
+
+// "ㅇㅅㅌ" → 아세톤. 초성만 친 검색어도, 일반 검색어도 매칭합니다.
+export function koreanMatch(haystack, query) {
+  const h = haystack.toLowerCase();
+  const q = query.toLowerCase();
+  if (h.includes(q)) return true;
+  const isChoseongQuery = [...query].every((ch) => CHOSEONG.includes(ch) || ch === ' ');
+  if (isChoseongQuery && query.trim()) return choseongOf(haystack).includes(query.replace(/\s/g, ''));
+  return false;
+}
+
 export function filterInventory(inventory, { query = '', type = 'all', status = 'all' }) {
-  const q = query.trim().toLowerCase();
+  const q = query.trim();
   return inventory.filter((item) => {
     const typeOk = type === 'all' || item.type === type;
     const statusOk = status === 'all' || item.status === status;
-    const queryOk = !q || [item.name, item.category, item.owner, item.purpose, item.code, item.storageZone]
+    const haystack = [item.name, item.category, item.owner, item.purpose, item.code, item.storageZone]
       .filter(Boolean)
-      .join(' ')
-      .toLowerCase()
-      .includes(q);
+      .join(' ');
+    const queryOk = !q || koreanMatch(haystack, q);
     return typeOk && statusOk && queryOk;
   });
 }

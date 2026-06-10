@@ -5,10 +5,12 @@ import {
   deleteDoc,
   doc,
   getDocs,
-  getFirestore,
+  initializeFirestore,
   limit,
   onSnapshot,
   orderBy,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   query,
   serverTimestamp,
   setDoc,
@@ -25,7 +27,10 @@ export const firebaseConfig = {
 };
 
 export const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+// 오프라인 퍼시스턴스: 연결이 끊겨도 기록이 로컬에 보관됐다가 자동으로 동기화됩니다.
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+});
 
 export const COLLECTIONS = {
   chemicals: 'inventory_chemicals',
@@ -111,6 +116,7 @@ export async function saveChemical(chemical) {
     photo: chemical.photo || '',
     storageZone: chemical.storageZone || '',
     hazardClass: chemical.hazardClass || '',
+    note: chemical.note || '',
     updatedAt: serverTimestamp(),
   };
   await setDoc(doc(db, COLLECTIONS.chemicals, id), payload, { merge: true });
@@ -175,7 +181,7 @@ export async function saveConsumableCategory(category) {
 }
 
 export async function addMovementLog(log) {
-  await addDoc(collection(db, COLLECTIONS.logs), {
+  return addDoc(collection(db, COLLECTIONS.logs), {
     ...log,
     createdAt: serverTimestamp(),
   });
