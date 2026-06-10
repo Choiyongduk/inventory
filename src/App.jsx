@@ -299,7 +299,7 @@ export default function App() {
         qty: quantityText(form.qty || 0, form.unit || 'EA'), cat: form.cat || '기타',
         purchased: form.purchased || todayKey(), opened: form.opened || '-',
         disposed: form.disposed || (form.opened ? addDays(form.opened, 365) : '-'),
-        storageZone: form.storageZone || '', photo: form.photo || '',
+        storageZone: form.storageZone || '', photo: form.photo || '', minQty: form.minQty,
       });
     } else if (form.type === 'equipment') {
       const eq = ciEquip.find((e) => e._docId === form.equipId);
@@ -314,7 +314,7 @@ export default function App() {
       await saveConsumableItem({
         id: nextId, catId: form.catId || 'etc', n: form.name, cat: form.cat || '',
         qty: Number(form.qty || 0), unit: form.unit || 'EA', purpose: form.purpose || '',
-        code: form.code || '', location: form.location || '', photo: form.photo || '',
+        code: form.code || '', location: form.location || '', photo: form.photo || '', minQty: form.minQty,
       });
     }
     await addMovementLog({
@@ -1419,12 +1419,14 @@ function SpecList({ item }) {
       ['입고일', formatDate(item.purchased)], ['개봉일', formatDate(item.opened)],
       ['폐기예정', disposalText(item)], ['시험실', item.storageZone || '미지정'],
       ['취급자', item.owner], ['위험도', item.hazardClass || '미지정'], ['사용용도', item.purpose || '미기록'],
+      ['저재고 기준', item.minQty !== '' && item.minQty != null ? `${item.minQty} ${item.unit} 이하` : '팀 공통 기준'],
       ['비고', item.note || '-'],
     ];
   } else if (item.type === 'consumable') {
     rows = [
       ['품목코드', item.code || '미입력'], ['규격', item.spec || '미입력'],
       ['위치', item.location || '미입력'], ['용도', item.purpose || '미기록'],
+      ['저재고 기준', item.minQty !== '' && item.minQty != null ? `${item.minQty} ${item.unit} 이하` : '팀 공통 기준'],
     ];
   } else {
     rows = [
@@ -1462,6 +1464,7 @@ function ChemicalEditor({ edit, set, teamMembers = TEAM_MEMBERS, chemCats = CHEM
         <label><span>수량</span><input value={edit.qty || ''} onChange={(e) => set('qty', e.target.value)} /></label>
         <label><span>위험도</span><input value={edit.hazardClass || ''} onChange={(e) => set('hazardClass', e.target.value)} placeholder="예: 부식성" /></label>
       </div>
+      <label><span>저재고 기준 (이 수량 이하면 부족)</span><input type="number" min="0" value={edit.minQty ?? ''} onChange={(e) => set('minQty', e.target.value === '' ? '' : Number(e.target.value))} placeholder="비우면 팀 공통 기준 사용" /></label>
       <div className="grid-3">
         <label><span>입고일</span><input type="date" value={edit.purchased !== '-' ? edit.purchased || '' : ''} onChange={(e) => set('purchased', e.target.value || '-')} /></label>
         <label><span>개봉일</span><input type="date" value={edit.opened !== '-' ? edit.opened || '' : ''} onChange={(e) => { set('opened', e.target.value || '-'); if (e.target.value && (!edit.disposed || edit.disposed === '-')) set('disposed', addDays(e.target.value, 365)); }} /></label>
@@ -1488,6 +1491,7 @@ function ConsumableEditor({ edit, set, categories, onAddCategory }) {
         <label><span>단위</span><input value={edit.unit || 'EA'} onChange={(e) => set('unit', e.target.value)} /></label>
         <label><span>품목코드</span><input value={edit.code || ''} onChange={(e) => set('code', e.target.value)} /></label>
       </div>
+      <label><span>저재고 기준 (이 수량 이하면 부족)</span><input type="number" min="0" value={edit.minQty ?? ''} onChange={(e) => set('minQty', e.target.value === '' ? '' : Number(e.target.value))} placeholder="비우면 팀 공통 기준 사용" /></label>
       <label><span>위치</span><input value={edit.location || ''} onChange={(e) => set('location', e.target.value)} placeholder="예: 시약장 하단" /></label>
       <label><span>용도·비고</span><textarea rows="2" value={edit.purpose || ''} onChange={(e) => set('purpose', e.target.value)} /></label>
       <PhotoField value={edit.photo || ''} onChange={(v) => set('photo', v)} />
@@ -1547,7 +1551,7 @@ function NewItemModal({ currentUser, categories, equipmentList = [], teamMembers
   const [form, setForm] = useState({
     type: 'chemical', name: '', qty: 1, unit: 'EA', handler: currentUser, cat: '기타',
     catId: 'etc', purchased: todayKey(), opened: '', disposed: '', purpose: '', storageZone: '',
-    location: '', code: '', photo: '', need: 1, serial: '', equipId: equipmentList[0]?._docId || '',
+    location: '', code: '', photo: '', minQty: '', need: 1, serial: '', equipId: equipmentList[0]?._docId || '',
   });
   const set = (f, v) => setForm((c) => ({ ...c, [f]: v }));
   function submit() {
@@ -1609,6 +1613,7 @@ function NewItemModal({ currentUser, categories, equipmentList = [], teamMembers
                   <label><span>개봉일</span><input type="date" value={form.opened} onChange={(e) => { set('opened', e.target.value); if (e.target.value) set('disposed', addDays(e.target.value, 365)); }} /></label>
                 </div>
                 <label><span>시험실</span><SelectAddable value={form.storageZone} onChange={(v) => set('storageZone', v)} options={zones} placeholder="선택" onAdd={onAddZone} addLabel="+ 새 시험실 추가" /></label>
+                <label><span>저재고 기준 (이 수량 이하면 부족)</span><input type="number" min="0" value={form.minQty} onChange={(e) => set('minQty', e.target.value === '' ? '' : Number(e.target.value))} placeholder="비우면 팀 공통 기준 사용" /></label>
               </>
             )}
             {form.type === 'consumable' && (
@@ -1618,6 +1623,7 @@ function NewItemModal({ currentUser, categories, equipmentList = [], teamMembers
                   <label><span>품목코드</span><input value={form.code} onChange={(e) => set('code', e.target.value)} /></label>
                 </div>
                 <label><span>위치</span><input value={form.location} onChange={(e) => set('location', e.target.value)} /></label>
+                <label><span>저재고 기준 (이 수량 이하면 부족)</span><input type="number" min="0" value={form.minQty} onChange={(e) => set('minQty', e.target.value === '' ? '' : Number(e.target.value))} placeholder="비우면 팀 공통 기준 사용" /></label>
               </>
             )}
             <label><span>용도·비고</span><textarea rows="2" value={form.purpose} onChange={(e) => set('purpose', e.target.value)} /></label>

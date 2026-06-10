@@ -61,10 +61,17 @@ export function makeCategoryMap(customCats = []) {
   }, {});
 }
 
+// 품목별 저재고 기준(minQty)이 있으면 그것을, 없으면 팀 공통 기준(lowQty)을 사용
+function resolveLowQty(item, settings) {
+  const m = item.minQty;
+  if (m !== undefined && m !== null && m !== '' && !Number.isNaN(Number(m))) return Number(m);
+  return settings.lowQty ?? DEFAULT_SETTINGS.lowQty;
+}
+
 function chemicalStatus(item, settings) {
   const qty = parseQuantity(item.qty);
   const disposalDays = settings.disposalDays ?? DEFAULT_SETTINGS.disposalDays;
-  const lowQty = settings.lowQty ?? DEFAULT_SETTINGS.lowQty;
+  const lowQty = resolveLowQty(item, settings);
   const left = daysUntil(item.disposed);
   const missingRequired = !item.purchased || item.purchased === '-' || !item.handler || item.handler === '-';
 
@@ -78,7 +85,7 @@ function chemicalStatus(item, settings) {
 
 function consumableStatus(item, settings) {
   const qty = Number(item.qty ?? 0);
-  const lowQty = settings.lowQty ?? DEFAULT_SETTINGS.lowQty;
+  const lowQty = resolveLowQty(item, settings);
   if (qty <= 0) return { status: 'critical', reason: '재고 없음' };
   if (qty <= lowQty) return { status: 'warning', reason: '보충 필요' };
   return { status: 'ok', reason: '사용 가능' };
@@ -118,6 +125,7 @@ export function normalizeInventory({ chemicals = [], consumables = [], ciEquip =
       storageZone: chemical.storageZone || '',
       hazardClass: chemical.hazardClass || '',
       note: chemical.note || '',
+      minQty: chemical.minQty ?? '',
       photo: chemical.photo || '',
       ...status,
     };
@@ -144,6 +152,7 @@ export function normalizeInventory({ chemicals = [], consumables = [], ciEquip =
       code: item.code || '',
       spec: item.spec || '',
       location: item.location || '',
+      minQty: item.minQty ?? '',
       photo: item.photo || '',
       ...status,
     };

@@ -186,6 +186,7 @@ export async function saveChemical(chemical) {
     storageZone: chemical.storageZone || '',
     hazardClass: chemical.hazardClass || '',
     note: chemical.note || '',
+    minQty: chemical.minQty === '' || chemical.minQty == null ? null : Number(chemical.minQty),
     updatedAt: serverTimestamp(),
   };
   await setDoc(doc(db, COLLECTIONS.chemicals, id), payload, { merge: true });
@@ -210,6 +211,7 @@ export async function saveConsumableItem(item) {
     spec: item.spec || '',
     photo: item.photo || '',
     location: item.location || '',
+    minQty: item.minQty === '' || item.minQty == null ? null : Number(item.minQty),
     updatedAt: serverTimestamp(),
   };
   await setDoc(doc(db, COLLECTIONS.consumableItems, id), payload, { merge: true });
