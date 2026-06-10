@@ -8,7 +8,7 @@ import {
 import {
   addMovementLog, deleteChemical, deleteConsumableItem, deleteMovementLog,
   exportCollectionCounts, saveChemical, saveConsumableCategory, saveConsumableItem,
-  saveEquipment, saveTeamSettings, subscribeInventory,
+  saveEquipment, saveTeamSettings, signInWithGoogle, signOutUser, subscribeInventory, watchAuth,
 } from './firebase';
 import {
   BUILTIN_CONSUMABLE_CATS, CHEMICAL_CATEGORIES, DEFAULT_SETTINGS, MANAGEMENT_RULES,
@@ -94,6 +94,7 @@ function useLocalStorageState(key, initialValue) {
 }
 
 export default function App() {
+  const [authUser, setAuthUser] = useState(undefined); // undefined=확인중, null=로그아웃
   const [currentUser, setCurrentUser] = useLocalStorageState(STORAGE_KEYS.currentUser, '');
   const [activeView, setActiveView] = useLocalStorageState(STORAGE_KEYS.viewMode, 'home');
   const [favRaw, setFavRaw] = useLocalStorageState(STORAGE_KEYS.favorites, '[]');
@@ -114,7 +115,10 @@ export default function App() {
   const [toast, setToast] = useState(null); // { msg, undo? }
   const [deepLinked, setDeepLinked] = useState(false);
 
+  useEffect(() => watchAuth(setAuthUser), []);
+
   useEffect(() => {
+    if (!authUser) return undefined;
     const cleanup = subscribeInventory({
       onChemicals: (rows) => { setChemicals(rows); setLoading(false); },
       onCi: (rows) => setCiEquip(rows),
@@ -125,7 +129,7 @@ export default function App() {
       onError: (err) => { setError(err.message || 'Firebase 연결 오류가 발생했습니다.'); setLoading(false); },
     });
     return cleanup;
-  }, []);
+  }, [authUser]);
 
   useEffect(() => {
     const on = () => setOnline(true);
@@ -280,6 +284,8 @@ export default function App() {
   function openLabelFor(item) { setLabelKey(item.key); setSelectedKey(''); setActiveView('labels'); }
   function openAttention() { setStockAttention(true); setActiveView('stock'); }
 
+  if (authUser === undefined) return <AuthLoading />;
+  if (!authUser) return <AuthGate />;
   if (!currentUser) return <UserGate onSelect={setCurrentUser} />;
 
   return (
@@ -356,8 +362,9 @@ export default function App() {
               )}
               {activeView === 'settings' && (
                 <SettingsView
-                  currentUser={currentUser} settings={settings}
+                  currentUser={currentUser} settings={settings} authEmail={authUser?.email || ''}
                   setCurrentUser={setCurrentUser} onSaveSettings={saveTeamSettings} onExport={handleExport}
+                  onSignOut={() => signOutUser()}
                 />
               )}
             </>
@@ -410,6 +417,40 @@ export default function App() {
 }
 
 /* ------------------------------------------------------------------ gate */
+function AuthLoading() {
+  return (
+    <div className="gate">
+      <div className="gate-card" style={{ textAlign: 'center' }}>
+        <div className="brand-mark large" style={{ margin: '0 auto 14px' }}>FITI</div>
+        <div className="loader" style={{ margin: '10px auto' }} />
+        <p style={{ margin: 0 }}>로그인 상태를 확인하고 있습니다…</p>
+      </div>
+    </div>
+  );
+}
+
+function AuthGate() {
+  const [error, setError] = useState('');
+  async function login() {
+    setError('');
+    try { await signInWithGoogle(); } catch (e) {
+      setError(e?.code === 'auth/popup-closed-by-user' ? '로그인 창이 닫혔습니다. 다시 시도해 주세요.' : '로그인에 실패했습니다. 다시 시도해 주세요.');
+    }
+  }
+  return (
+    <div className="gate">
+      <div className="gate-card">
+        <div className="brand-mark large">FITI</div>
+        <span className="eyebrow">의장소재팀 재고관리</span>
+        <h1>로그인</h1>
+        <p>승인된 구글 계정으로 로그인하세요. 한 번 로그인하면 다음부터 자동으로 로그인됩니다.</p>
+        <button className="btn primary full" onClick={login}>구글 계정으로 로그인</button>
+        {error && <p style={{ color: 'var(--crit)', marginTop: 12 }}>{error}</p>}
+      </div>
+    </div>
+  );
+}
+
 function UserGate({ onSelect }) {
   return (
     <div className="gate">
@@ -896,7 +937,7 @@ function LabelsView({ inventory, labelKey, onChangeLabelKey }) {
 }
 
 /* ------------------------------------------------------------------ settings */
-function SettingsView({ currentUser, settings, setCurrentUser, onSaveSettings, onExport }) {
+function SettingsView({ currentUser, settings, authEmail, setCurrentUser, onSaveSettings, onExport, onSignOut }) {
   const [draft, setDraft] = useState(settings);
   useEffect(() => setDraft(settings), [settings]);
   return (
@@ -936,6 +977,14 @@ function SettingsView({ currentUser, settings, setCurrentUser, onSaveSettings, o
           <button className="btn ghost" onClick={onExport}><Download size={16} />JSON 백업</button>
           <button className="btn ghost" onClick={() => window.print()}><Printer size={16} />화면 인쇄</button>
         </div>
+      </div>
+
+      <div className="card">
+        <div className="card-title">계정</div>
+        <div className="profile">
+          <div><span>로그인 계정</span><strong style={{ fontSize: 15 }}>{authEmail || '-'}</strong></div>
+        </div>
+        <button className="btn ghost full" onClick={onSignOut}>로그아웃</button>
       </div>
     </div>
   );

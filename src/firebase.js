@@ -1,5 +1,14 @@
 import { initializeApp } from 'firebase/app';
 import {
+  GoogleAuthProvider,
+  browserLocalPersistence,
+  getAuth,
+  onAuthStateChanged,
+  setPersistence,
+  signInWithPopup,
+  signOut,
+} from 'firebase/auth';
+import {
   addDoc,
   collection,
   deleteDoc,
@@ -18,12 +27,12 @@ import {
 } from 'firebase/firestore';
 
 export const firebaseConfig = {
-  apiKey: 'AIzaSyBA1A3_JNLEvrp1PhjAhg3-sWCvPtOaTpE',
-  authDomain: 'team-equipment-scheduler.firebaseapp.com',
-  projectId: 'team-equipment-scheduler',
-  storageBucket: 'team-equipment-scheduler.firebasestorage.app',
-  messagingSenderId: '562135839911',
-  appId: '1:562135839911:web:337c16e1cff7d716fdd782',
+  apiKey: 'AIzaSyC2O0461bVf0jlqwZykQyF0Wwwn9Clp7dc',
+  authDomain: 'fiti-inventory.firebaseapp.com',
+  projectId: 'fiti-inventory',
+  storageBucket: 'fiti-inventory.firebasestorage.app',
+  messagingSenderId: '308634166032',
+  appId: '1:308634166032:web:8de520d69164a24390fb95',
 };
 
 export const app = initializeApp(firebaseConfig);
@@ -31,6 +40,21 @@ export const app = initializeApp(firebaseConfig);
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 });
+
+// 인증: 구글 로그인. 세션은 브라우저에 저장돼 한 번 로그인하면 자동 로그인됩니다.
+export const auth = getAuth(app);
+setPersistence(auth, browserLocalPersistence).catch(() => { /* 비지원 환경 무시 */ });
+const googleProvider = new GoogleAuthProvider();
+
+export function watchAuth(callback) {
+  return onAuthStateChanged(auth, callback);
+}
+export function signInWithGoogle() {
+  return signInWithPopup(auth, googleProvider);
+}
+export function signOutUser() {
+  return signOut(auth);
+}
 
 export const COLLECTIONS = {
   chemicals: 'inventory_chemicals',
