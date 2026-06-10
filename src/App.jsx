@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import {
   addMovementLog, deleteChemical, deleteConsumableItem, deleteMovementLog,
-  exportCollectionCounts, removeMember, requestMembership, saveChemical, saveConsumableCategory,
+  removeMember, requestMembership, saveChemical, saveConsumableCategory,
   saveConsumableItem, saveEquipment, saveTeamSettings, setMemberStatus, signInWithGoogle, signOutUser,
   subscribeInventory, watchAuth, watchMember, watchMembers,
 } from './firebase';
@@ -16,15 +16,14 @@ import {
   STORAGE_KEYS, STORAGE_ZONES, TEAM_MEMBERS,
 } from './data/team';
 import {
-  addDays, applyQuantityDelta, daysUntil, downloadJson, filterInventory, formatDate,
+  addDays, applyQuantityDelta, daysUntil, downloadCsv, filterInventory, formatDate,
   formatNumber, makeMovementPayload, normalizeInventory, quantityText, todayKey,
 } from './lib/inventory';
 
 const NAV_ITEMS = [
   { id: 'home', label: '홈', icon: Home },
   { id: 'stock', label: '선반', icon: Boxes },
-  { id: 'ledger', label: '내 기록', icon: ClipboardList },
-  { id: 'labels', label: '라벨', icon: Tag },
+  { id: 'ledger', label: '기록', icon: ClipboardList },
   { id: 'settings', label: '설정', icon: Settings },
 ];
 
@@ -297,11 +296,37 @@ export default function App() {
     setNewItemOpen(false);
   }
 
-  async function handleExport() {
-    const counts = await exportCollectionCounts();
-    downloadJson(`fiti_inventory_${todayKey()}.json`, {
-      exportedAt: new Date().toISOString(), counts, chemicals, consumables, ciEquip, customCats, logs, settings,
-    });
+  function handleExportInventory() {
+    const typeKo = { chemical: '약품', consumable: '일반 소모품', equipment: '장비 소모품' };
+    const headers = ['구분', '품명', '분류', '수량', '단위', '필요수량', '담당자', '시험실/위치', '용도', '입고일', '개봉일', '폐기예정', '품목코드', '비고', '상태'];
+    const rows = inventory.map((it) => [
+      typeKo[it.type] || it.type,
+      it.name,
+      it.category,
+      round(it.qty),
+      it.unit,
+      it.type === 'equipment' ? it.need : '',
+      it.type === 'chemical' ? (it.owner || '').replace(/^의장_/, '') : '',
+      it.storageZone || it.location || '',
+      it.purpose && it.purpose !== '-' ? it.purpose : '',
+      it.type === 'chemical' ? formatDate(it.purchased) : '',
+      it.type === 'chemical' ? formatDate(it.opened) : '',
+      it.type === 'chemical' ? formatDate(it.disposed) : '',
+      it.code || '',
+      it.note || (it.type === 'equipment' ? it.serial : '') || '',
+      it.reason || '',
+    ]);
+    downloadCsv(`FITI_재고목록_${todayKey()}.csv`, headers, rows);
+  }
+
+  function handleExportLogs() {
+    const headers = ['날짜', '시간', '품목', '구분', '수량', '담당자', '메모'];
+    const rows = logs.map((l) => [
+      l.isoDate || '', l.time || '', l.item,
+      l.action === 'use' ? '출고' : (l.action === 'add' ? '입고' : l.action),
+      l.qty, (l.handler || '').replace(/^의장_/, ''), l.memo || '',
+    ]);
+    downloadCsv(`FITI_입출고기록_${todayKey()}.csv`, headers, rows);
   }
 
   function openLabelFor(item) { setLabelKey(item.key); setSelectedKey(''); setActiveView('labels'); }
@@ -394,7 +419,8 @@ export default function App() {
                   onApproveMember={(uid) => setMemberStatus(uid, 'approved')}
                   onRejectMember={(uid) => setMemberStatus(uid, 'rejected')}
                   onRemoveMember={(uid) => { if (window.confirm('이 회원의 접근을 완전히 삭제할까요?')) removeMember(uid); }}
-                  setCurrentUser={setCurrentUser} onSaveSettings={saveTeamSettings} onExport={handleExport}
+                  setCurrentUser={setCurrentUser} onSaveSettings={saveTeamSettings}
+                  onExportInventory={handleExportInventory} onExportLogs={handleExportLogs}
                   onSignOut={() => signOutUser()}
                 />
               )}
@@ -634,7 +660,7 @@ function HomeView({ currentUser, inventory, logs, favorites, onOpen, onOpenList 
 
 /* ------------------------------------------------------------------ 관리 지침 */
 function GuidePanel() {
-  const [open, setOpen] = useState(MANAGEMENT_RULES[0]?.id || '');
+  const [open, setOpen] = useState(''); // 기본은 모두 닫힘
   return (
     <div className="guide">
       {MANAGEMENT_RULES.map((rule, idx) => {
@@ -995,7 +1021,7 @@ function LabelsView({ inventory, labelKey, onChangeLabelKey }) {
 }
 
 /* ------------------------------------------------------------------ settings */
-function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [], onApproveMember, onRejectMember, onRemoveMember, setCurrentUser, onSaveSettings, onExport, onSignOut }) {
+function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [], onApproveMember, onRejectMember, onRemoveMember, setCurrentUser, onSaveSettings, onExportInventory, onExportLogs, onSignOut }) {
   const [draft, setDraft] = useState(settings);
   useEffect(() => setDraft(settings), [settings]);
   const pending = members.filter((m) => m.status === 'pending');
@@ -1082,9 +1108,11 @@ function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [],
       </div>
 
       <div className="card">
-        <div className="card-title">데이터</div>
+        <div className="card-title">데이터 내보내기</div>
+        <p className="vsub" style={{ marginTop: 0 }}>엑셀에서 바로 열리는 CSV로 내려받습니다. 보고·감사용으로 활용하세요.</p>
         <div className="settings-actions">
-          <button className="btn ghost" onClick={onExport}><Download size={16} />JSON 백업</button>
+          <button className="btn ghost" onClick={onExportInventory}><Download size={16} />재고 목록 (엑셀)</button>
+          <button className="btn ghost" onClick={onExportLogs}><Download size={16} />입출고 기록 (엑셀)</button>
           <button className="btn ghost" onClick={() => window.print()}><Printer size={16} />화면 인쇄</button>
         </div>
       </div>
@@ -1196,9 +1224,6 @@ function QuickLogSheet({ item, logs, categories, zones, chemCats, onAddZone, onA
                     </div>
                   ) : <EmptyState small title="이력이 없습니다" text="첫 기록을 남겨보세요." />}
                   <div className="dbtns">
-                    {item.type !== 'equipment' && (
-                      <button onClick={() => onOpenLabel(item)}><Tag size={16} />취급 라벨</button>
-                    )}
                     <button onClick={() => setEditing(true)}><Pencil size={16} />정보 수정</button>
                     <button className="danger" onClick={() => onDelete(item)}><Trash2 size={16} />삭제</button>
                   </div>

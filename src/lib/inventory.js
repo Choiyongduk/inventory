@@ -285,6 +285,22 @@ export function applyQuantityDelta(item, direction, amount, unit) {
   return item.source;
 }
 
+// 엑셀에서 바로 열리는 CSV (UTF-8 BOM 포함 → 한글 안 깨짐)
+export function downloadCsv(filename, headers, rows) {
+  const cell = (v) => {
+    const s = v == null ? '' : String(v);
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const csv = [headers, ...rows].map((r) => r.map(cell).join(',')).join('\r\n');
+  const blob = new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 export function downloadJson(filename, data) {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
