@@ -354,7 +354,7 @@ h1, h2, h3 { letter-spacing: -0.025em; }
 /* ---------------------------------------------------------------- bottom tabs */
 .tabs {
   position: fixed; left: 12px; right: 12px; bottom: 12px; height: 62px; z-index: 30;
-  background: rgba(255,255,255,.88); backdrop-filter: blur(16px) saturate(1.4);
+  background: rgba(255,255,255,.97);
   border: 1px solid var(--line); border-radius: 16px;
   display: flex; padding: 4px;
   box-shadow: var(--shadow-3);
@@ -369,8 +369,7 @@ h1, h2, h3 { letter-spacing: -0.025em; }
 
 /* ---------------------------------------------------------------- scrim / sheet */
 .scrim {
-  position: fixed; inset: 0; z-index: 40; background: rgba(18,23,31,.46);
-  backdrop-filter: blur(2px);
+  position: fixed; inset: 0; z-index: 40; background: rgba(18,23,31,.52);
   display: flex; align-items: flex-end; justify-content: center;
   animation: fade .22s var(--ease);
 }

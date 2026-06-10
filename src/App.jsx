@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import QRCode from 'qrcode';
 import {
   AlertTriangle, ArrowLeft, ArrowLeftRight, Bell, Boxes, Camera, Check, ChevronDown, ClipboardList,
@@ -1269,7 +1269,7 @@ function QuickLogSheet({ item, logs, categories, zones, chemCats, onAddZone, onA
               {!editing ? (
                 <>
                   {item.photo && (
-                    <div className="item-photo"><img src={item.photo} alt={`${item.name} 사진`} /></div>
+                    <div className="item-photo"><img src={item.photo} alt={`${item.name} 사진`} loading="lazy" decoding="async" /></div>
                   )}
                   <SpecList item={item} />
                   <div className="label" style={{ margin: '14px 2px 8px' }}>입출고 이력</div>
@@ -1563,31 +1563,46 @@ function LabelPreview({ item }) {
 }
 
 /* ------------------------------------------------------------------ shared bits */
-function ItemList({ items, logs, onOpen }) {
+const ItemList = memo(function ItemList({ items, logs, onOpen }) {
+  // 품목별 최신 로그를 한 번만 색인 (행마다 전체 로그를 스캔하지 않도록)
+  const latest = useMemo(() => {
+    const m = new Map();
+    for (const l of logs) {
+      if (l.itemKey && !m.has(`k:${l.itemKey}`)) m.set(`k:${l.itemKey}`, l);
+      if (l.item && !m.has(`n:${l.item}`)) m.set(`n:${l.item}`, l);
+    }
+    return m;
+  }, [logs]);
   if (!items.length) return <EmptyState title="검색 결과가 없습니다" text="다른 검색어로 시도해 보세요." />;
   return (
     <div className="rows">
-      {items.map((it) => (
-        <button key={it.key} className={`row with-thumb s-${it.status}`} onClick={() => onOpen(it.key)}>
-          <div className={`edge cat-${it.type}`} />
-          <div className={`row-thumb cat-${it.type}`}>
-            {it.photo
-              ? <img src={it.photo} alt="" />
-              : <span className="ic"><ItemIcon type={it.type} size={18} /></span>}
-          </div>
-          <div className="body">
-            <b>{it.name}</b>
-            <div className="meta"><span className={`tag cat-${it.type}`}>{CAT_LABEL[it.type]}</span>마지막: {lastActivity(it, logs)}</div>
-          </div>
-          <div className="stock">
-            <span className="q">{round(it.qty)}</span> <span className="u">{it.unit}</span>
-            <div><span className={`pin ${pinTone(it.status)}`}>{friendlyPin(it)}</span></div>
-          </div>
-        </button>
-      ))}
+      {items.map((it) => {
+        const hit = latest.get(`k:${it.key}`) || latest.get(`n:${it.name}`);
+        const last = hit
+          ? `${(hit.handler || '-').replace(/^의장_/, '')} · ${hit.time || hit.isoDate} ${hit.action === 'use' ? '출고' : '입고'}`
+          : (it.owner && it.owner !== '-' ? it.owner : '기록 없음');
+        return (
+          <button key={it.key} className={`row with-thumb s-${it.status}`} onClick={() => onOpen(it.key)}>
+            <div className={`edge cat-${it.type}`} />
+            <div className={`row-thumb cat-${it.type}`}>
+              {it.photo
+                ? <img src={it.photo} alt="" loading="lazy" decoding="async" />
+                : <span className="ic"><ItemIcon type={it.type} size={18} /></span>}
+            </div>
+            <div className="body">
+              <b>{it.name}</b>
+              <div className="meta"><span className={`tag cat-${it.type}`}>{CAT_LABEL[it.type]}</span>마지막: {last}</div>
+            </div>
+            <div className="stock">
+              <span className="q">{round(it.qty)}</span> <span className="u">{it.unit}</span>
+              <div><span className={`pin ${pinTone(it.status)}`}>{friendlyPin(it)}</span></div>
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
-}
+});
 
 function LogRow({ log, canDelete = false, onDelete, onOpen, compact = false }) {
   const out = log.action === 'use';
