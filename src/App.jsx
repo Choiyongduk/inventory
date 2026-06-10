@@ -670,11 +670,11 @@ function DesktopRail({ active, currentUser, online, onNav, onNew }) {
           </button>
         ))}
       </nav>
-      <div className="rail-foot">
+      <button className={`rail-foot ${active === 'settings' ? 'on' : ''}`} onClick={() => onNav('settings')} aria-label="설정으로 이동">
         <div className="who"><div className="av">{currentUser.slice(-3)}</div>
           <div><b>{currentUser.replace(/^의장_/, '')}</b><span>{online ? '동기화 중' : '오프라인'}</span></div></div>
         {online ? <Wifi size={16} className="dot-on" /> : <WifiOff size={16} className="dot-off" />}
-      </div>
+      </button>
     </aside>
   );
 }

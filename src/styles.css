@@ -716,9 +716,12 @@ textarea { resize: vertical; }
   .rail-item.on { background: var(--action-soft); color: var(--action-deep); font-weight: 700; }
   .rail-item.on svg { color: var(--action); }
   .rail-foot {
-    margin-top: auto; display: flex; align-items: center; gap: 10px;
+    margin-top: auto; display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
     padding: 11px; border-radius: 11px; background: var(--card-2); border: 1px solid var(--line);
+    cursor: pointer; transition: border-color .14s var(--ease), background .14s var(--ease);
   }
+  .rail-foot:hover { border-color: var(--line-2); background: var(--card); }
+  .rail-foot.on { border-color: var(--action); background: var(--action-soft); }
   .rail-foot .who b { font-size: 13px; }
   .rail-foot .dot-on { color: var(--ok); margin-left: auto; }
   .rail-foot .dot-off { color: var(--warn); margin-left: auto; }
