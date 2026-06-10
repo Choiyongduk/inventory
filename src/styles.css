@@ -551,6 +551,11 @@ input:focus, select:focus, textarea:focus { border-color: var(--action); box-sha
 input::placeholder, textarea::placeholder { color: var(--faint); }
 textarea { resize: vertical; }
 
+/* 모바일 입력 시 자동 확대 방지: iOS는 입력칸 글자가 16px 미만이면 포커스할 때 화면을 확대함 */
+@media (pointer: coarse) {
+  input, select, textarea, .search input { font-size: 16px; }
+}
+
 /* ---------------------------------------------------------------- photo */
 .photo-field { display: grid; gap: 6px; }
 .photo-field > span { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .03em; }
