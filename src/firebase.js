@@ -61,18 +61,22 @@ export function watchMember(uid, callback, onError) {
 export function watchMembers(callback, onError) {
   return onSnapshot(collection(db, COLLECTIONS.members), (snap) => callback(mapSnapshot(snap)), onError);
 }
-export async function requestMembership(user) {
+export async function requestMembership(user, name, approved = false) {
   await setDoc(doc(db, COLLECTIONS.members, user.uid), {
     uid: user.uid,
     email: user.email || '',
     displayName: user.displayName || '',
-    role: 'member',
-    status: 'pending',
+    name: name || '',
+    role: approved ? 'admin' : 'member',
+    status: approved ? 'approved' : 'pending',
     createdAt: serverTimestamp(),
   });
 }
 export async function setMemberStatus(uid, status) {
   await setDoc(doc(db, COLLECTIONS.members, uid), { status, updatedAt: serverTimestamp() }, { merge: true });
+}
+export async function setMemberName(uid, name) {
+  await setDoc(doc(db, COLLECTIONS.members, uid), { name, updatedAt: serverTimestamp() }, { merge: true });
 }
 export async function removeMember(uid) {
   await deleteDoc(doc(db, COLLECTIONS.members, uid));

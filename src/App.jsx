@@ -8,7 +8,7 @@ import {
 import {
   addMovementLog, deleteChemical, deleteConsumableItem, deleteMovementLog,
   removeMember, requestMembership, saveChemical,
-  saveConsumableItem, saveEquipment, saveTeamSettings, setMemberStatus, signInWithGoogle, signOutUser,
+  saveConsumableItem, saveEquipment, saveTeamSettings, setMemberName, setMemberStatus, signInWithGoogle, signOutUser,
   subscribeInventory, watchAuth, watchMember, watchMembers,
 } from './firebase';
 import {
@@ -97,8 +97,8 @@ export default function App() {
   const [authUser, setAuthUser] = useState(undefined); // undefined=확인중, null=로그아웃
   const [member, setMember] = useState(undefined); // undefined=확인중, null=없음, obj=멤버문서
   const [allMembers, setAllMembers] = useState([]); // 관리자용 전체 멤버 목록
-  const [currentUser, setCurrentUser] = useLocalStorageState(STORAGE_KEYS.currentUser, '');
   const [activeView, setActiveView] = useLocalStorageState(STORAGE_KEYS.viewMode, 'home');
+  const currentUser = member?.name || ''; // 담당자 = 로그인 계정에 고정된 이름
   const [favRaw, setFavRaw] = useLocalStorageState(STORAGE_KEYS.favorites, '[]');
   const [chemicals, setChemicals] = useState([]);
   const [ciEquip, setCiEquip] = useState([]);
@@ -128,10 +128,12 @@ export default function App() {
     return watchMember(authUser.uid, setMember, () => setMember(null));
   }, [authUser]);
 
-  // 멤버 문서가 없으면(첫 로그인) 가입 신청 자동 생성
-  useEffect(() => {
-    if (authUser && member === null && !isAdmin) requestMembership(authUser).catch(() => {});
-  }, [authUser, member, isAdmin]);
+  // 이름 등록(가입 시 본인 이름 1회 선택 → 계정에 고정)
+  async function submitName(name) {
+    if (!authUser) return;
+    if (member) await setMemberName(authUser.uid, name);
+    else await requestMembership(authUser, name, isAdmin);
+  }
 
   // 관리자는 전체 멤버 목록 구독 (승인 관리용)
   useEffect(() => {
@@ -354,11 +356,13 @@ export default function App() {
 
   if (authUser === undefined) return <AuthLoading />;
   if (!authUser) return <AuthGate />;
-  if (member === undefined && !isAdmin) return <AuthLoading />;
-  if (!access) {
-    return <AccessScreen email={authUser.email} rejected={member?.status === 'rejected'} onSignOut={() => signOutUser()} />;
+  if (member === undefined) return <AuthLoading />;
+  if (!member || !member.name) {
+    return <NameGate takenNames={allMembers.filter((m) => m.uid !== authUser.uid).map((m) => m.name)} onSubmit={submitName} onSignOut={() => signOutUser()} />;
   }
-  if (!currentUser) return <UserGate onSelect={setCurrentUser} />;
+  if (!access) {
+    return <AccessScreen email={authUser.email} name={member.name} rejected={member.status === 'rejected'} onSignOut={() => signOutUser()} />;
+  }
 
   return (
     <div className="app-shell">
@@ -439,11 +443,12 @@ export default function App() {
                   onApproveMember={(uid) => setMemberStatus(uid, 'approved')}
                   onRejectMember={(uid) => setMemberStatus(uid, 'rejected')}
                   onRemoveMember={(uid) => { if (window.confirm('이 회원의 접근을 완전히 삭제할까요?')) removeMember(uid); }}
+                  onRenameMember={(uid, name) => setMemberName(uid, name)}
                   catItems={categories.filter((c) => c.type !== 'equipment')} zoneItems={allZones} chemCatItems={allChemCats}
                   onRenameCategory={renameCategory} onDeleteCategory={deleteCategory}
                   onRenameZone={renameZone} onDeleteZone={deleteZone}
                   onRenameChemCat={renameChemCat} onDeleteChemCat={deleteChemCat}
-                  setCurrentUser={setCurrentUser} onSaveSettings={saveTeamSettings}
+                  onSaveSettings={saveTeamSettings}
                   onExportInventory={handleExportInventory} onExportLogs={handleExportLogs}
                   onSignOut={() => signOutUser()}
                 />
@@ -540,7 +545,7 @@ function AuthGate() {
   );
 }
 
-function AccessScreen({ email, rejected = false, onSignOut }) {
+function AccessScreen({ email, name, rejected = false, onSignOut }) {
   return (
     <div className="gate">
       <div className="gate-card">
@@ -552,28 +557,40 @@ function AccessScreen({ email, rejected = false, onSignOut }) {
             ? '관리자가 접근을 허용하지 않았습니다. 필요하면 관리자에게 문의해 주세요.'
             : '가입 신청이 접수되었습니다. 관리자가 승인하면 바로 이용할 수 있습니다. (승인되면 이 화면이 자동으로 넘어갑니다.)'}
         </p>
-        <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 18px' }}>로그인 계정: {email}</p>
+        <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 18px' }}>
+          {name ? `${name.replace(/^의장_/, '')} · ` : ''}{email}
+        </p>
         <button className="btn ghost full" onClick={onSignOut}>다른 계정으로 로그인 / 로그아웃</button>
       </div>
     </div>
   );
 }
 
-function UserGate({ onSelect }) {
+function NameGate({ takenNames = [], onSubmit, onSignOut }) {
+  const [busy, setBusy] = useState(false);
+  async function pick(m) {
+    if (busy) return;
+    setBusy(true);
+    try { await onSubmit(m); } catch { setBusy(false); }
+  }
   return (
     <div className="gate">
       <div className="gate-card">
         <div className="brand-mark large">FITI</div>
         <span className="eyebrow">의장소재팀 재고관리</span>
-        <h1>담당자 선택</h1>
-        <p>이름을 선택하면 입출고 기록의 담당자로 지정됩니다. 설정에서 변경할 수 있습니다.</p>
+        <h1>본인 이름 선택</h1>
+        <p>입출고 기록에 표시될 본인 이름을 선택하세요. 한 번 선택하면 계정에 고정되며, 변경은 관리자에게 요청해야 합니다.</p>
         <div className="member-grid">
-          {TEAM_MEMBERS.map((m) => (
-            <button key={m} onClick={() => onSelect(m)}>
-              <span>{m.slice(-3)}</span>{m.replace(/^의장_/, '')}
-            </button>
-          ))}
+          {TEAM_MEMBERS.map((m) => {
+            const taken = takenNames.includes(m);
+            return (
+              <button key={m} disabled={taken || busy} onClick={() => pick(m)}>
+                <span>{m.slice(-3)}</span>{m.replace(/^의장_/, '')}{taken ? ' · 사용중' : ''}
+              </button>
+            );
+          })}
         </div>
+        <button className="btn ghost full" style={{ marginTop: 14 }} onClick={onSignOut}>로그아웃</button>
       </div>
     </div>
   );
@@ -1045,7 +1062,11 @@ function LabelsView({ inventory, labelKey, onChangeLabelKey }) {
 }
 
 /* ------------------------------------------------------------------ settings */
-function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [], onApproveMember, onRejectMember, onRemoveMember, catItems = [], zoneItems = [], chemCatItems = [], onRenameCategory, onDeleteCategory, onRenameZone, onDeleteZone, onRenameChemCat, onDeleteChemCat, setCurrentUser, onSaveSettings, onExportInventory, onExportLogs, onSignOut }) {
+function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [], onApproveMember, onRejectMember, onRemoveMember, onRenameMember, catItems = [], zoneItems = [], chemCatItems = [], onRenameCategory, onDeleteCategory, onRenameZone, onDeleteZone, onRenameChemCat, onDeleteChemCat, onSaveSettings, onExportInventory, onExportLogs, onSignOut }) {
+  const reassign = (m) => {
+    const next = window.prompt('지정할 이름(예: 의장_이진원)', m.name || '');
+    if (next && next.trim()) onRenameMember(m.uid, next.trim());
+  };
   const [draft, setDraft] = useState(settings);
   useEffect(() => setDraft(settings), [settings]);
   const pending = members.filter((m) => m.status === 'pending');
@@ -1064,8 +1085,9 @@ function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [],
             <div className="member-list">
               {pending.map((m) => (
                 <div key={m.uid} className="member-row">
-                  <div className="member-info"><b>{m.displayName || '(이름 없음)'}</b><span>{m.email}</span></div>
+                  <div className="member-info"><b>{m.name ? m.name.replace(/^의장_/, '') : (m.displayName || '(이름 미지정)')}</b><span>{m.email}</span></div>
                   <div className="member-acts">
+                    <button className="mini" onClick={() => reassign(m)}>이름</button>
                     <button className="mini ok" onClick={() => onApproveMember(m.uid)}>승인</button>
                     <button className="mini no" onClick={() => onRejectMember(m.uid)}>거절</button>
                   </div>
@@ -1078,8 +1100,9 @@ function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [],
           <div className="member-list">
             {approved.map((m) => (
               <div key={m.uid} className="member-row">
-                <div className="member-info"><b>{m.displayName || '(이름 없음)'}</b><span>{m.email}</span></div>
+                <div className="member-info"><b>{m.name ? m.name.replace(/^의장_/, '') : (m.displayName || '(이름 미지정)')}</b><span>{m.email}</span></div>
                 <div className="member-acts">
+                  <button className="mini" onClick={() => reassign(m)}>이름</button>
                   <button className="mini no" onClick={() => onRemoveMember(m.uid)}>접근 해제</button>
                 </div>
               </div>
@@ -1109,13 +1132,9 @@ function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [],
         <div className="card-title">담당자</div>
         <div className="profile">
           <div className="av lg">{currentUser.slice(-3)}</div>
-          <div><span>지금 담당자</span><strong>{currentUser.replace(/^의장_/, '')}</strong></div>
+          <div><span>내 담당자 이름 (계정 고정)</span><strong>{currentUser.replace(/^의장_/, '')}</strong></div>
         </div>
-        <div className="member-grid small">
-          {TEAM_MEMBERS.map((m) => (
-            <button key={m} className={m === currentUser ? 'active' : ''} onClick={() => setCurrentUser(m)}>{m.replace(/^의장_/, '')}</button>
-          ))}
-        </div>
+        <p className="vsub" style={{ margin: 0 }}>입출고 기록은 이 이름으로 남습니다. 이름 변경이 필요하면 관리자에게 요청하세요.</p>
       </div>
 
       <div className="card">
