@@ -1511,8 +1511,13 @@ function ItemList({ items, logs, onOpen }) {
   return (
     <div className="rows">
       {items.map((it) => (
-        <button key={it.key} className={`row s-${it.status}`} onClick={() => onOpen(it.key)}>
+        <button key={it.key} className={`row with-thumb s-${it.status}`} onClick={() => onOpen(it.key)}>
           <div className={`edge cat-${it.type}`} />
+          <div className={`row-thumb cat-${it.type}`}>
+            {it.photo
+              ? <img src={it.photo} alt="" />
+              : <span className="ic"><ItemIcon type={it.type} size={18} /></span>}
+          </div>
           <div className="body">
             <b>{it.name}</b>
             <div className="meta"><span className={`tag cat-${it.type}`}>{CAT_LABEL[it.type]}</span>마지막: {lastActivity(it, logs)}</div>
