@@ -450,7 +450,7 @@ export default function App() {
                   onApproveMember={(uid) => setMemberStatus(uid, 'approved')}
                   onRejectMember={(uid) => setMemberStatus(uid, 'rejected')}
                   onRemoveMember={(uid) => { if (window.confirm('이 회원의 접근을 완전히 삭제할까요?')) removeMember(uid); }}
-                  onRenameMember={(uid, name) => setMemberName(uid, name)}
+                  onRenameMember={(uid, name) => setMemberName(uid, name.startsWith('의장_') ? name : `의장_${name}`)}
                   catItems={categories.filter((c) => c.type !== 'equipment')} zoneItems={allZones} chemCatItems={allChemCats} teamItems={teamMembers}
                   onAddCategory={addCategory} onRenameCategory={renameCategory} onDeleteCategory={deleteCategory}
                   onAddZone={addZone} onRenameZone={renameZone} onDeleteZone={deleteZone}
