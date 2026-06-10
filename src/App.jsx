@@ -6,7 +6,7 @@ import {
   Tag, Trash2, UserRound, Wifi, WifiOff, X,
 } from 'lucide-react';
 import {
-  addMovementLog, deleteChemical, deleteConsumableItem, deleteMovementLog,
+  addMovementLog, deleteChemical, deleteConsumableCategory, deleteConsumableItem, deleteMovementLog,
   removeMember, requestMembership, saveChemical, saveConsumableCategory,
   saveConsumableItem, saveEquipment, saveTeamSettings, setMemberStatus, signInWithGoogle, signOutUser,
   subscribeInventory, watchAuth, watchMember, watchMembers,
@@ -419,6 +419,10 @@ export default function App() {
                   onApproveMember={(uid) => setMemberStatus(uid, 'approved')}
                   onRejectMember={(uid) => setMemberStatus(uid, 'rejected')}
                   onRemoveMember={(uid) => { if (window.confirm('이 회원의 접근을 완전히 삭제할까요?')) removeMember(uid); }}
+                  customCats={customCats} zones={settings.customZones || []} chemCats={settings.customChemCats || []}
+                  onDeleteCategory={(id) => deleteConsumableCategory(id)}
+                  onDeleteZone={(z) => saveTeamSettings({ customZones: (settings.customZones || []).filter((x) => x !== z) })}
+                  onDeleteChemCat={(c) => saveTeamSettings({ customChemCats: (settings.customChemCats || []).filter((x) => x !== c) })}
                   setCurrentUser={setCurrentUser} onSaveSettings={saveTeamSettings}
                   onExportInventory={handleExportInventory} onExportLogs={handleExportLogs}
                   onSignOut={() => signOutUser()}
@@ -1021,7 +1025,7 @@ function LabelsView({ inventory, labelKey, onChangeLabelKey }) {
 }
 
 /* ------------------------------------------------------------------ settings */
-function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [], onApproveMember, onRejectMember, onRemoveMember, setCurrentUser, onSaveSettings, onExportInventory, onExportLogs, onSignOut }) {
+function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [], onApproveMember, onRejectMember, onRemoveMember, customCats = [], zones = [], chemCats = [], onDeleteCategory, onDeleteZone, onDeleteChemCat, setCurrentUser, onSaveSettings, onExportInventory, onExportLogs, onSignOut }) {
   const [draft, setDraft] = useState(settings);
   useEffect(() => setDraft(settings), [settings]);
   const pending = members.filter((m) => m.status === 'pending');
@@ -1108,6 +1112,14 @@ function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [],
       </div>
 
       <div className="card">
+        <div className="card-title">분류·시험실 관리</div>
+        <p className="vsub" style={{ marginTop: 0 }}>직접 추가한 항목만 삭제할 수 있습니다. 기본 항목은 삭제되지 않습니다.</p>
+        <TagManager label="소모품 카테고리" items={customCats.map((c) => ({ key: c.id, label: c.label }))} onDelete={onDeleteCategory} empty="추가한 카테고리 없음" />
+        <TagManager label="시험실" items={zones.map((z) => ({ key: z, label: z }))} onDelete={onDeleteZone} empty="추가한 시험실 없음" />
+        <TagManager label="약품 분류" items={chemCats.map((c) => ({ key: c, label: c }))} onDelete={onDeleteChemCat} empty="추가한 분류 없음" />
+      </div>
+
+      <div className="card">
         <div className="card-title">데이터 내보내기</div>
         <p className="vsub" style={{ marginTop: 0 }}>엑셀에서 바로 열리는 CSV로 내려받습니다. 보고·감사용으로 활용하세요.</p>
         <div className="settings-actions">
@@ -1124,6 +1136,24 @@ function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [],
         </div>
         <button className="btn ghost full" onClick={onSignOut}>로그아웃</button>
       </div>
+    </div>
+  );
+}
+
+function TagManager({ label, items, onDelete, empty }) {
+  return (
+    <div className="tagmgr">
+      <div className="label" style={{ marginTop: 6 }}>{label}</div>
+      {items.length ? (
+        <div className="tag-chips">
+          {items.map((it) => (
+            <span key={it.key} className="tag-chip">
+              {it.label}
+              <button onClick={() => { if (window.confirm(`'${it.label}' 항목을 삭제할까요?`)) onDelete(it.key); }} aria-label="삭제"><X size={13} /></button>
+            </span>
+          ))}
+        </div>
+      ) : <p className="vsub" style={{ margin: '0 0 4px' }}>{empty}</p>}
     </div>
   );
 }
@@ -1223,10 +1253,6 @@ function QuickLogSheet({ item, logs, categories, zones, chemCats, onAddZone, onA
                       {history.map((l) => <LogRow key={l._docId || `${l.item}-${l.time}`} log={l} compact />)}
                     </div>
                   ) : <EmptyState small title="이력이 없습니다" text="첫 기록을 남겨보세요." />}
-                  <div className="dbtns">
-                    <button onClick={() => setEditing(true)}><Pencil size={16} />정보 수정</button>
-                    <button className="danger" onClick={() => onDelete(item)}><Trash2 size={16} />삭제</button>
-                  </div>
                 </>
               ) : (
                 <div className="edit-block">
@@ -1246,9 +1272,15 @@ function QuickLogSheet({ item, logs, categories, zones, chemCats, onAddZone, onA
           )}
 
           {!editing && (
-            <button className={`confirm ${mode === 'in' ? 'in' : ''}`} onClick={commit} disabled={over}>
-              {over ? '재고 부족' : mode === 'out' ? '출고 기록' : '입고 기록'}
-            </button>
+            <>
+              <button className={`confirm ${mode === 'in' ? 'in' : ''}`} onClick={commit} disabled={over}>
+                {over ? '재고 부족' : mode === 'out' ? '출고 기록' : '입고 기록'}
+              </button>
+              <div className="quick-acts">
+                <button onClick={() => { setShowDetail(true); setEditing(true); }}><Pencil size={16} />정보 수정</button>
+                <button className="danger" onClick={() => onDelete(item)}><Trash2 size={16} />삭제</button>
+              </div>
+            </>
           )}
         </div>
       </section>

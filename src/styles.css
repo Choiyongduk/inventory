@@ -65,7 +65,7 @@ h1, h2, h3 { letter-spacing: -0.025em; }
 
 /* ---------------------------------------------------------------- layout */
 .app-shell { min-height: 100dvh; display: grid; grid-template-columns: 1fr; }
-.main { min-width: 0; display: flex; flex-direction: column; min-height: 100dvh; padding-bottom: 96px; }
+.main { min-width: 0; display: flex; flex-direction: column; min-height: 100dvh; padding-bottom: 96px; overflow-x: hidden; }
 .scroll { flex: 1; padding: 0 16px; }
 .view { max-width: 760px; margin: 0 auto; padding-bottom: 24px; }
 
@@ -134,11 +134,12 @@ h1, h2, h3 { letter-spacing: -0.025em; }
 .search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font-size: 14.5px; }
 .search input::placeholder { color: var(--faint); }
 .filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; }
-.segmented { display: inline-flex; gap: 2px; padding: 3px; background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; }
+.segmented { display: inline-flex; gap: 2px; padding: 3px; background: var(--paper-2); border: 1px solid var(--line); border-radius: 10px; max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.segmented::-webkit-scrollbar { display: none; }
 .segmented button {
-  border-radius: 7px; padding: 7px 13px; color: var(--muted);
+  flex: none; border-radius: 7px; padding: 7px 13px; color: var(--muted);
   font-weight: 600; font-size: 13px; white-space: nowrap;
-  transition: all .14s var(--ease);
+  transition: color .14s var(--ease), background .14s var(--ease);
 }
 .segmented button:hover { color: var(--ink); }
 .segmented button.on { background: var(--card); color: var(--ink); font-weight: 700; box-shadow: var(--shadow-1); }
@@ -356,10 +357,11 @@ h1, h2, h3 { letter-spacing: -0.025em; }
   position: fixed; left: 12px; right: 12px; bottom: 12px; height: 62px; z-index: 30;
   background: rgba(255,255,255,.88); backdrop-filter: blur(16px) saturate(1.4);
   border: 1px solid var(--line); border-radius: 16px;
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  display: flex; padding: 4px;
   box-shadow: var(--shadow-3);
 }
 .tabs button {
+  flex: 1; min-width: 0;
   display: grid; justify-items: center; align-content: center; gap: 3px;
   color: var(--faint); font-size: 10px; font-weight: 650; border-radius: 12px;
   transition: color .14s var(--ease);
@@ -487,6 +489,15 @@ h1, h2, h3 { letter-spacing: -0.025em; }
 .dbtns button.dark:hover { background: #232a35; }
 .dbtns button.danger { grid-column: 1 / -1; background: var(--crit-bg); color: var(--crit); border-color: #ecc8c2; }
 .dbtns button.danger:hover { border-color: var(--crit); }
+.quick-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+.quick-acts button {
+  height: 46px; border-radius: 11px; border: 1px solid var(--line-2); background: var(--card);
+  font-weight: 650; font-size: 13.5px; display: flex; align-items: center; justify-content: center; gap: 7px;
+  transition: border-color .14s var(--ease);
+}
+.quick-acts button:hover { border-color: var(--ink); }
+.quick-acts button.danger { background: var(--crit-bg); color: var(--crit); border-color: #ecc8c2; }
+.quick-acts button.danger:hover { border-color: var(--crit); }
 .edit-block .del {
   width: 100%; margin-top: 10px; height: 42px; border-radius: 10px;
   background: var(--crit-bg); color: var(--crit); font-weight: 700;
@@ -708,6 +719,12 @@ textarea { resize: vertical; }
   .scroll { padding: 34px 48px; }
   .view { max-width: 880px; }
 }
+
+/* ---------------------------------------------------------------- 분류 관리 */
+.tag-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 4px; }
+.tag-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 8px 6px 12px; background: var(--card-2); border: 1px solid var(--line); border-radius: 999px; font-size: 12.5px; font-weight: 600; }
+.tag-chip button { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); background: var(--card); border: 1px solid var(--line); }
+.tag-chip button:hover { color: var(--crit); border-color: #ecc8c2; }
 
 /* ---------------------------------------------------------------- 회원 관리 */
 .member-list { display: grid; gap: 7px; margin-bottom: 6px; }

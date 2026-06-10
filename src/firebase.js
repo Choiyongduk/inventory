@@ -233,6 +233,10 @@ export async function saveConsumableCategory(category) {
   );
 }
 
+export async function deleteConsumableCategory(id) {
+  await deleteDoc(doc(db, COLLECTIONS.consumableCats, id));
+}
+
 export async function addMovementLog(log) {
   return addDoc(collection(db, COLLECTIONS.logs), {
     ...log,
