@@ -6,8 +6,8 @@ import {
   Tag, Trash2, UserRound, Wifi, WifiOff, X,
 } from 'lucide-react';
 import {
-  addMovementLog, deleteChemical, deleteConsumableCategory, deleteConsumableItem, deleteMovementLog,
-  removeMember, requestMembership, saveChemical, saveConsumableCategory,
+  addMovementLog, deleteChemical, deleteConsumableItem, deleteMovementLog,
+  removeMember, requestMembership, saveChemical,
   saveConsumableItem, saveEquipment, saveTeamSettings, setMemberStatus, signInWithGoogle, signOutUser,
   subscribeInventory, watchAuth, watchMember, watchMembers,
 } from './firebase';
@@ -161,28 +161,48 @@ export default function App() {
     return () => { window.removeEventListener('online', on); window.removeEventListener('offline', off); };
   }, []);
 
-  const inventory = useMemo(
-    () => normalizeInventory({ chemicals, consumables, ciEquip, customCats, settings }),
-    [chemicals, consumables, ciEquip, customCats, settings],
+  // 편집 가능한 목록: 설정에 저장된 게 있으면 그걸, 없으면 기본값(+기존 커스텀)을 사용.
+  // 한 번 편집하면 전체 목록이 설정에 '실체화'되어 그 뒤로는 기본값까지 수정/삭제 가능.
+  const categories = useMemo(
+    () => settings.consumableCats
+      || [...BUILTIN_CONSUMABLE_CATS, ...customCats].map((c) => ({ id: c.id, label: c.label, type: c.type || 'consumable' })),
+    [settings.consumableCats, customCats],
   );
-  const categories = useMemo(() => [...BUILTIN_CONSUMABLE_CATS, ...customCats], [customCats]);
-  const allZones = useMemo(() => [...STORAGE_ZONES, ...(settings.customZones || [])], [settings]);
-  const allChemCats = useMemo(() => [...CHEMICAL_CATEGORIES, ...(settings.customChemCats || [])], [settings]);
+  const allZones = useMemo(
+    () => settings.zones || [...STORAGE_ZONES, ...(settings.customZones || [])],
+    [settings.zones, settings.customZones],
+  );
+  const allChemCats = useMemo(
+    () => settings.chemCats || [...CHEMICAL_CATEGORIES, ...(settings.customChemCats || [])],
+    [settings.chemCats, settings.customChemCats],
+  );
 
-  // 드롭다운에 새 항목 추가 (선택값을 돌려줘 즉시 선택되게 함)
-  async function addZone(label) {
-    await saveTeamSettings({ customZones: [...(settings.customZones || []), label] });
-    return label;
-  }
-  async function addChemCat(label) {
-    await saveTeamSettings({ customChemCats: [...(settings.customChemCats || []), label] });
-    return label;
-  }
+  const inventory = useMemo(
+    () => normalizeInventory({ chemicals, consumables, ciEquip, customCats: categories, settings }),
+    [chemicals, consumables, ciEquip, categories, settings],
+  );
+
+  // 드롭다운 새 항목 추가 (선택값 반환 → 즉시 선택)
+  async function addZone(label) { await saveTeamSettings({ zones: [...allZones, label] }); return label; }
+  function renameZone(oldV, newV) { return saveTeamSettings({ zones: allZones.map((z) => (z === oldV ? newV : z)) }); }
+  function deleteZone(z) { return saveTeamSettings({ zones: allZones.filter((x) => x !== z) }); }
+
+  async function addChemCat(label) { await saveTeamSettings({ chemCats: [...allChemCats, label] }); return label; }
+  function renameChemCat(oldV, newV) { return saveTeamSettings({ chemCats: allChemCats.map((c) => (c === oldV ? newV : c)) }); }
+  function deleteChemCat(c) { return saveTeamSettings({ chemCats: allChemCats.filter((x) => x !== c) }); }
+
   async function addCategory(label) {
     const id = `cat_${Date.now()}`;
-    await saveConsumableCategory({ id, label, type: 'consumable', canDelete: true });
+    await saveTeamSettings({ consumableCats: [...categories, { id, label, type: 'consumable' }] });
     return id;
   }
+  function renameCategory(id, label) {
+    return saveTeamSettings({ consumableCats: categories.map((c) => (c.id === id ? { ...c, label } : c)) });
+  }
+  function deleteCategory(id) {
+    return saveTeamSettings({ consumableCats: categories.filter((c) => c.id !== id) });
+  }
+
   async function addEquipment(name) {
     const nextId = Math.max(0, ...ciEquip.map((e) => Number(e.id || 0))) + 1;
     await saveEquipment({ id: nextId, name, lamp: '', order: nextId, parts: [] });
@@ -419,10 +439,10 @@ export default function App() {
                   onApproveMember={(uid) => setMemberStatus(uid, 'approved')}
                   onRejectMember={(uid) => setMemberStatus(uid, 'rejected')}
                   onRemoveMember={(uid) => { if (window.confirm('이 회원의 접근을 완전히 삭제할까요?')) removeMember(uid); }}
-                  customCats={customCats} zones={settings.customZones || []} chemCats={settings.customChemCats || []}
-                  onDeleteCategory={(id) => deleteConsumableCategory(id)}
-                  onDeleteZone={(z) => saveTeamSettings({ customZones: (settings.customZones || []).filter((x) => x !== z) })}
-                  onDeleteChemCat={(c) => saveTeamSettings({ customChemCats: (settings.customChemCats || []).filter((x) => x !== c) })}
+                  catItems={categories.filter((c) => c.type !== 'equipment')} zoneItems={allZones} chemCatItems={allChemCats}
+                  onRenameCategory={renameCategory} onDeleteCategory={deleteCategory}
+                  onRenameZone={renameZone} onDeleteZone={deleteZone}
+                  onRenameChemCat={renameChemCat} onDeleteChemCat={deleteChemCat}
                   setCurrentUser={setCurrentUser} onSaveSettings={saveTeamSettings}
                   onExportInventory={handleExportInventory} onExportLogs={handleExportLogs}
                   onSignOut={() => signOutUser()}
@@ -1025,7 +1045,7 @@ function LabelsView({ inventory, labelKey, onChangeLabelKey }) {
 }
 
 /* ------------------------------------------------------------------ settings */
-function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [], onApproveMember, onRejectMember, onRemoveMember, customCats = [], zones = [], chemCats = [], onDeleteCategory, onDeleteZone, onDeleteChemCat, setCurrentUser, onSaveSettings, onExportInventory, onExportLogs, onSignOut }) {
+function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [], onApproveMember, onRejectMember, onRemoveMember, catItems = [], zoneItems = [], chemCatItems = [], onRenameCategory, onDeleteCategory, onRenameZone, onDeleteZone, onRenameChemCat, onDeleteChemCat, setCurrentUser, onSaveSettings, onExportInventory, onExportLogs, onSignOut }) {
   const [draft, setDraft] = useState(settings);
   useEffect(() => setDraft(settings), [settings]);
   const pending = members.filter((m) => m.status === 'pending');
@@ -1113,10 +1133,10 @@ function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [],
 
       <div className="card">
         <div className="card-title">분류·시험실 관리</div>
-        <p className="vsub" style={{ marginTop: 0 }}>직접 추가한 항목만 삭제할 수 있습니다. 기본 항목은 삭제되지 않습니다.</p>
-        <TagManager label="소모품 카테고리" items={customCats.map((c) => ({ key: c.id, label: c.label }))} onDelete={onDeleteCategory} empty="추가한 카테고리 없음" />
-        <TagManager label="시험실" items={zones.map((z) => ({ key: z, label: z }))} onDelete={onDeleteZone} empty="추가한 시험실 없음" />
-        <TagManager label="약품 분류" items={chemCats.map((c) => ({ key: c, label: c }))} onDelete={onDeleteChemCat} empty="추가한 분류 없음" />
+        <p className="vsub" style={{ marginTop: 0 }}>이름 변경(✎)·삭제(×)가 모두 가능합니다. 기본 항목도 편집됩니다.</p>
+        <TagManager label="소모품 카테고리" items={catItems.map((c) => ({ key: c.id, label: c.label }))} onRename={onRenameCategory} onDelete={onDeleteCategory} empty="카테고리 없음" />
+        <TagManager label="시험실" items={zoneItems.map((z) => ({ key: z, label: z }))} onRename={onRenameZone} onDelete={onDeleteZone} empty="시험실 없음" />
+        <TagManager label="약품 분류" items={chemCatItems.map((c) => ({ key: c, label: c }))} onRename={onRenameChemCat} onDelete={onDeleteChemCat} empty="분류 없음" />
       </div>
 
       <div className="card">
@@ -1140,7 +1160,11 @@ function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [],
   );
 }
 
-function TagManager({ label, items, onDelete, empty }) {
+function TagManager({ label, items, onRename, onDelete, empty }) {
+  function rename(it) {
+    const next = window.prompt('새 이름을 입력하세요', it.label);
+    if (next && next.trim() && next.trim() !== it.label) onRename(it.key, next.trim());
+  }
   return (
     <div className="tagmgr">
       <div className="label" style={{ marginTop: 6 }}>{label}</div>
@@ -1149,6 +1173,7 @@ function TagManager({ label, items, onDelete, empty }) {
           {items.map((it) => (
             <span key={it.key} className="tag-chip">
               {it.label}
+              {onRename && <button onClick={() => rename(it)} aria-label="이름 변경"><Pencil size={12} /></button>}
               <button onClick={() => { if (window.confirm(`'${it.label}' 항목을 삭제할까요?`)) onDelete(it.key); }} aria-label="삭제"><X size={13} /></button>
             </span>
           ))}
