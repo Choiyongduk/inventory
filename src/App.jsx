@@ -23,7 +23,7 @@ import {
 
 const NAV_ITEMS = [
   { id: 'home', label: '홈', icon: Home },
-  { id: 'stock', label: '선반', icon: Boxes },
+  { id: 'stock', label: '재고', icon: Boxes },
   { id: 'ledger', label: '기록', icon: ClipboardList },
   { id: 'settings', label: '설정', icon: Settings },
 ];
@@ -1465,6 +1465,7 @@ function ChemicalEditor({ edit, set, teamMembers = TEAM_MEMBERS, chemCats = CHEM
       <label><span>시험실</span><SelectAddable value={edit.storageZone || ''} onChange={(v) => set('storageZone', v)} options={zones} placeholder="선택" onAdd={onAddZone} addLabel="+ 새 시험실 추가" /></label>
       <label><span>사용용도</span><textarea rows="2" value={edit.purpose || ''} onChange={(e) => set('purpose', e.target.value)} /></label>
       <label><span>비고</span><input value={edit.note || ''} onChange={(e) => set('note', e.target.value)} placeholder="예: 라벨 미부착, 폐기 확인" /></label>
+      <PhotoField value={edit.photo || ''} onChange={(v) => set('photo', v)} />
     </div>
   );
 }
@@ -1484,6 +1485,7 @@ function ConsumableEditor({ edit, set, categories, onAddCategory }) {
       </div>
       <label><span>위치</span><input value={edit.location || ''} onChange={(e) => set('location', e.target.value)} placeholder="예: 시약장 하단" /></label>
       <label><span>용도·비고</span><textarea rows="2" value={edit.purpose || ''} onChange={(e) => set('purpose', e.target.value)} /></label>
+      <PhotoField value={edit.photo || ''} onChange={(v) => set('photo', v)} />
     </div>
   );
 }
@@ -1502,6 +1504,38 @@ function EquipmentEditor({ edit, set }) {
   );
 }
 
+/* 사진 촬영/선택 입력 (등록·수정 공통) */
+function PhotoField({ value, onChange }) {
+  async function handle(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try { onChange(await readImageResized(file)); } catch { /* 변환 실패 시 무시 */ }
+    e.target.value = '';
+  }
+  return (
+    <div className="photo-field">
+      <span>사진</span>
+      {value ? (
+        <div className="photo-preview">
+          <img src={value} alt="품목 사진" />
+          <button type="button" className="photo-remove" onClick={() => onChange('')} aria-label="사진 삭제"><X size={15} /></button>
+        </div>
+      ) : (
+        <div className="photo-actions">
+          <label className="photo-btn">
+            <Camera size={17} />촬영
+            <input type="file" accept="image/*" capture="environment" onChange={handle} hidden />
+          </label>
+          <label className="photo-btn ghost">
+            <Plus size={16} />앨범에서 선택
+            <input type="file" accept="image/*" onChange={handle} hidden />
+          </label>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ------------------------------------------------------------------ new item */
 function NewItemModal({ currentUser, categories, equipmentList = [], teamMembers = TEAM_MEMBERS, zones = [], chemCats = [], onAddZone, onAddChemCat, onAddCategory, onAddEquipment, onClose, onSubmit }) {
   const [form, setForm] = useState({
@@ -1510,11 +1544,6 @@ function NewItemModal({ currentUser, categories, equipmentList = [], teamMembers
     location: '', code: '', photo: '', need: 1, serial: '', equipId: equipmentList[0]?._docId || '',
   });
   const set = (f, v) => setForm((c) => ({ ...c, [f]: v }));
-  async function handlePhoto(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try { set('photo', await readImageResized(file)); } catch { /* 변환 실패 시 무시 */ }
-  }
   function submit() {
     if (!form.name.trim()) return;
     if (form.type === 'equipment' && !form.equipId) return;
@@ -1586,26 +1615,7 @@ function NewItemModal({ currentUser, categories, equipmentList = [], teamMembers
               </>
             )}
             <label><span>용도·비고</span><textarea rows="2" value={form.purpose} onChange={(e) => set('purpose', e.target.value)} /></label>
-            <div className="photo-field">
-              <span>사진</span>
-              {form.photo ? (
-                <div className="photo-preview">
-                  <img src={form.photo} alt="등록할 품목 사진" />
-                  <button type="button" className="photo-remove" onClick={() => set('photo', '')} aria-label="사진 삭제"><X size={15} /></button>
-                </div>
-              ) : (
-                <div className="photo-actions">
-                  <label className="photo-btn">
-                    <Camera size={17} />촬영
-                    <input type="file" accept="image/*" capture="environment" onChange={handlePhoto} hidden />
-                  </label>
-                  <label className="photo-btn ghost">
-                    <Plus size={16} />앨범에서 선택
-                    <input type="file" accept="image/*" onChange={handlePhoto} hidden />
-                  </label>
-                </div>
-              )}
-            </div>
+            <PhotoField value={form.photo} onChange={(v) => set('photo', v)} />
           </div>
           <button className="confirm" onClick={submit}>등록</button>
         </div>
@@ -1672,9 +1682,8 @@ const ItemList = memo(function ItemList({ items, logs, onOpen }) {
     <div className="rows">
       {items.map((it) => {
         const hit = latest.get(`k:${it.key}`) || latest.get(`n:${it.name}`);
-        const last = hit
-          ? `${(hit.handler || '-').replace(/^의장_/, '')} · ${hit.time || hit.isoDate} ${hit.action === 'use' ? '출고' : '입고'}`
-          : (it.owner && it.owner !== '-' ? it.owner : '기록 없음');
+        const owner = it.owner && it.owner !== '-' ? it.owner.replace(/^의장_/, '') : '';
+        const incharge = owner || (hit ? (hit.handler || '').replace(/^의장_/, '') : '') || '미지정';
         return (
           <button key={it.key} className={`row with-thumb s-${it.status}`} onClick={() => onOpen(it.key)}>
             <div className={`edge cat-${it.type}`} />
@@ -1685,7 +1694,7 @@ const ItemList = memo(function ItemList({ items, logs, onOpen }) {
             </div>
             <div className="body">
               <b>{it.name}</b>
-              <div className="meta"><span className={`tag cat-${it.type}`}>{CAT_LABEL[it.type]}</span>마지막: {last}</div>
+              <div className="meta"><span className={`tag cat-${it.type}`}>{CAT_LABEL[it.type]}</span>담당: {incharge}</div>
             </div>
             <div className="stock">
               <span className="q">{round(it.qty)}</span> <span className="u">{it.unit}</span>
