@@ -172,6 +172,7 @@ export function normalizeInventory({ chemicals = [], consumables = [], ciEquip =
         code: part.code || '',
         serial: part.serial || '-',
         price: Number(part.price ?? 0),
+        photo: part.photo || '',
         ...status,
       };
     }),

@@ -306,7 +306,7 @@ export default function App() {
       if (!eq) { flash('장비를 선택하세요'); return; }
       const newPart = {
         n: form.name, need: Number(form.need || 0), have: Number(form.qty || 0),
-        code: form.code || '', serial: form.serial || '', price: 0,
+        code: form.code || '', serial: form.serial || '', price: 0, photo: form.photo || '',
       };
       await saveEquipment({ ...eq, parts: [...(eq.parts || []), newPart] });
     } else {
@@ -1505,6 +1505,7 @@ function EquipmentEditor({ edit, set }) {
         <label><span>단가</span><input type="number" value={edit.price ?? 0} onChange={(e) => set('price', Number(e.target.value))} /></label>
       </div>
       <label><span>품목코드</span><input value={edit.code || ''} onChange={(e) => set('code', e.target.value)} /></label>
+      <PhotoField value={edit.photo || ''} onChange={(v) => set('photo', v)} />
     </div>
   );
 }
