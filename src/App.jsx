@@ -434,7 +434,15 @@ function AuthGate() {
   async function login() {
     setError('');
     try { await signInWithGoogle(); } catch (e) {
-      setError(e?.code === 'auth/popup-closed-by-user' ? '로그인 창이 닫혔습니다. 다시 시도해 주세요.' : '로그인에 실패했습니다. 다시 시도해 주세요.');
+      const code = e?.code || '';
+      const msg = {
+        'auth/popup-closed-by-user': '로그인 창이 닫혔습니다. 다시 시도해 주세요.',
+        'auth/cancelled-popup-request': '로그인 창이 닫혔습니다. 다시 시도해 주세요.',
+        'auth/popup-blocked': '브라우저가 팝업을 차단했습니다. 팝업 허용 후 다시 시도해 주세요.',
+        'auth/unauthorized-domain': '이 도메인이 Firebase에 등록되지 않았습니다. 관리자에게 문의해 주세요.',
+        'auth/operation-not-allowed': '구글 로그인이 비활성화되어 있습니다. 관리자에게 문의해 주세요.',
+      }[code] || `로그인에 실패했습니다. (${code || '알 수 없는 오류'})`;
+      setError(msg);
     }
   }
   return (
