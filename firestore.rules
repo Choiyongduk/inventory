@@ -1,23 +1,41 @@
 rules_version = '2';
 
 // 재고관리 전용 Firebase 프로젝트 보안 규칙.
-// 로그인(구글)한 사용자만 읽기/쓰기 가능합니다.
+// - 관리자(아래 이메일)는 항상 접근 가능 + 회원 승인 권한.
+// - 일반 사용자는 구글 로그인 후 '가입 신청(pending)' → 관리자가 'approved' 로 바꿔야 접근 가능.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // 특정 팀원만 허용하려면 아래 allowlist 를 사용하세요.
-    // function allowed() {
-    //   return request.auth != null && request.auth.token.email in [
-    //     'cyd8964@gmail.com'
-    //     // , '팀원2@gmail.com'
-    //     // , '팀원3@company.com'
-    //   ];
-    // }
-    // match /{document=**} { allow read, write: if allowed(); }
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    // 관리자 이메일 — src/data/team.js 의 ADMIN_EMAILS 와 동일하게 유지하세요.
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email in ['cyd8964@gmail.com'];
+    }
+    function isApproved() {
+      return isAdmin() || (
+        isSignedIn()
+        && exists(/databases/$(database)/documents/members/$(request.auth.uid))
+        && get(/databases/$(database)/documents/members/$(request.auth.uid)).data.status == 'approved'
+      );
+    }
 
-    // 기본: 로그인한 사용자 누구나 (전용 프로젝트라 전체 잠금이 안전)
+    // 멤버십 문서
+    match /members/{uid} {
+      // 본인 문서 또는 관리자만 읽기
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      // 본인이 'pending/member' 로만 가입 신청 생성 가능
+      allow create: if isSignedIn() && request.auth.uid == uid
+                    && request.resource.data.status == 'pending'
+                    && request.resource.data.role == 'member';
+      // 승인/거절/삭제는 관리자만
+      allow update, delete: if isAdmin();
+    }
+
+    // 재고 데이터(inventory_*) 등 그 외 모든 문서: 승인된 사용자만
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isApproved();
     }
   }
 }

@@ -49,6 +49,34 @@ const googleProvider = new GoogleAuthProvider();
 export function watchAuth(callback) {
   return onAuthStateChanged(auth, callback);
 }
+
+// 멤버십(가입 승인) 관리
+export function watchMember(uid, callback, onError) {
+  return onSnapshot(
+    doc(db, COLLECTIONS.members, uid),
+    (snap) => callback(snap.exists() ? { id: snap.id, ...snap.data() } : null),
+    onError,
+  );
+}
+export function watchMembers(callback, onError) {
+  return onSnapshot(collection(db, COLLECTIONS.members), (snap) => callback(mapSnapshot(snap)), onError);
+}
+export async function requestMembership(user) {
+  await setDoc(doc(db, COLLECTIONS.members, user.uid), {
+    uid: user.uid,
+    email: user.email || '',
+    displayName: user.displayName || '',
+    role: 'member',
+    status: 'pending',
+    createdAt: serverTimestamp(),
+  });
+}
+export async function setMemberStatus(uid, status) {
+  await setDoc(doc(db, COLLECTIONS.members, uid), { status, updatedAt: serverTimestamp() }, { merge: true });
+}
+export async function removeMember(uid) {
+  await deleteDoc(doc(db, COLLECTIONS.members, uid));
+}
 export function signInWithGoogle() {
   return signInWithPopup(auth, googleProvider);
 }
@@ -63,6 +91,7 @@ export const COLLECTIONS = {
   consumableItems: 'inventory_consumable_items',
   logs: 'inventory_logs',
   settings: 'inventory_settings',
+  members: 'members',
 };
 
 const mapSnapshot = (snapshot) => snapshot.docs.map((docSnap) => ({ _docId: docSnap.id, ...docSnap.data() }));

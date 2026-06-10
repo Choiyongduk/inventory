@@ -7,11 +7,12 @@ import {
 } from 'lucide-react';
 import {
   addMovementLog, deleteChemical, deleteConsumableItem, deleteMovementLog,
-  exportCollectionCounts, saveChemical, saveConsumableCategory, saveConsumableItem,
-  saveEquipment, saveTeamSettings, signInWithGoogle, signOutUser, subscribeInventory, watchAuth,
+  exportCollectionCounts, removeMember, requestMembership, saveChemical, saveConsumableCategory,
+  saveConsumableItem, saveEquipment, saveTeamSettings, setMemberStatus, signInWithGoogle, signOutUser,
+  subscribeInventory, watchAuth, watchMember, watchMembers,
 } from './firebase';
 import {
-  BUILTIN_CONSUMABLE_CATS, CHEMICAL_CATEGORIES, DEFAULT_SETTINGS, MANAGEMENT_RULES,
+  ADMIN_EMAILS, BUILTIN_CONSUMABLE_CATS, CHEMICAL_CATEGORIES, DEFAULT_SETTINGS, MANAGEMENT_RULES,
   STORAGE_KEYS, STORAGE_ZONES, TEAM_MEMBERS,
 } from './data/team';
 import {
@@ -95,6 +96,8 @@ function useLocalStorageState(key, initialValue) {
 
 export default function App() {
   const [authUser, setAuthUser] = useState(undefined); // undefined=확인중, null=로그아웃
+  const [member, setMember] = useState(undefined); // undefined=확인중, null=없음, obj=멤버문서
+  const [allMembers, setAllMembers] = useState([]); // 관리자용 전체 멤버 목록
   const [currentUser, setCurrentUser] = useLocalStorageState(STORAGE_KEYS.currentUser, '');
   const [activeView, setActiveView] = useLocalStorageState(STORAGE_KEYS.viewMode, 'home');
   const [favRaw, setFavRaw] = useLocalStorageState(STORAGE_KEYS.favorites, '[]');
@@ -117,8 +120,28 @@ export default function App() {
 
   useEffect(() => watchAuth(setAuthUser), []);
 
+  const isAdmin = !!authUser && ADMIN_EMAILS.includes(authUser.email || '');
+  const access = isAdmin || member?.status === 'approved';
+
+  // 로그인 사용자의 멤버십 문서 구독
   useEffect(() => {
-    if (!authUser) return undefined;
+    if (!authUser) { setMember(undefined); return undefined; }
+    return watchMember(authUser.uid, setMember, () => setMember(null));
+  }, [authUser]);
+
+  // 멤버 문서가 없으면(첫 로그인) 가입 신청 자동 생성
+  useEffect(() => {
+    if (authUser && member === null && !isAdmin) requestMembership(authUser).catch(() => {});
+  }, [authUser, member, isAdmin]);
+
+  // 관리자는 전체 멤버 목록 구독 (승인 관리용)
+  useEffect(() => {
+    if (!isAdmin) { setAllMembers([]); return undefined; }
+    return watchMembers(setAllMembers, () => {});
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (!access) return undefined;
     const cleanup = subscribeInventory({
       onChemicals: (rows) => { setChemicals(rows); setLoading(false); },
       onCi: (rows) => setCiEquip(rows),
@@ -129,7 +152,7 @@ export default function App() {
       onError: (err) => { setError(err.message || 'Firebase 연결 오류가 발생했습니다.'); setLoading(false); },
     });
     return cleanup;
-  }, [authUser]);
+  }, [access]);
 
   useEffect(() => {
     const on = () => setOnline(true);
@@ -286,6 +309,10 @@ export default function App() {
 
   if (authUser === undefined) return <AuthLoading />;
   if (!authUser) return <AuthGate />;
+  if (member === undefined && !isAdmin) return <AuthLoading />;
+  if (!access) {
+    return <AccessScreen email={authUser.email} rejected={member?.status === 'rejected'} onSignOut={() => signOutUser()} />;
+  }
   if (!currentUser) return <UserGate onSelect={setCurrentUser} />;
 
   return (
@@ -363,6 +390,10 @@ export default function App() {
               {activeView === 'settings' && (
                 <SettingsView
                   currentUser={currentUser} settings={settings} authEmail={authUser?.email || ''}
+                  isAdmin={isAdmin} members={allMembers}
+                  onApproveMember={(uid) => setMemberStatus(uid, 'approved')}
+                  onRejectMember={(uid) => setMemberStatus(uid, 'rejected')}
+                  onRemoveMember={(uid) => { if (window.confirm('이 회원의 접근을 완전히 삭제할까요?')) removeMember(uid); }}
                   setCurrentUser={setCurrentUser} onSaveSettings={saveTeamSettings} onExport={handleExport}
                   onSignOut={() => signOutUser()}
                 />
@@ -454,6 +485,25 @@ function AuthGate() {
         <p>승인된 구글 계정으로 로그인하세요. 한 번 로그인하면 다음부터 자동으로 로그인됩니다.</p>
         <button className="btn primary full" onClick={login}>구글 계정으로 로그인</button>
         {error && <p style={{ color: 'var(--crit)', marginTop: 12 }}>{error}</p>}
+      </div>
+    </div>
+  );
+}
+
+function AccessScreen({ email, rejected = false, onSignOut }) {
+  return (
+    <div className="gate">
+      <div className="gate-card">
+        <div className="brand-mark large">FITI</div>
+        <span className="eyebrow">의장소재팀 재고관리</span>
+        <h1>{rejected ? '접근이 거부되었습니다' : '승인 대기 중'}</h1>
+        <p>
+          {rejected
+            ? '관리자가 접근을 허용하지 않았습니다. 필요하면 관리자에게 문의해 주세요.'
+            : '가입 신청이 접수되었습니다. 관리자가 승인하면 바로 이용할 수 있습니다. (승인되면 이 화면이 자동으로 넘어갑니다.)'}
+        </p>
+        <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 18px' }}>로그인 계정: {email}</p>
+        <button className="btn ghost full" onClick={onSignOut}>다른 계정으로 로그인 / 로그아웃</button>
       </div>
     </div>
   );
@@ -945,13 +995,65 @@ function LabelsView({ inventory, labelKey, onChangeLabelKey }) {
 }
 
 /* ------------------------------------------------------------------ settings */
-function SettingsView({ currentUser, settings, authEmail, setCurrentUser, onSaveSettings, onExport, onSignOut }) {
+function SettingsView({ currentUser, settings, authEmail, isAdmin, members = [], onApproveMember, onRejectMember, onRemoveMember, setCurrentUser, onSaveSettings, onExport, onSignOut }) {
   const [draft, setDraft] = useState(settings);
   useEffect(() => setDraft(settings), [settings]);
+  const pending = members.filter((m) => m.status === 'pending');
+  const approved = members.filter((m) => m.status === 'approved');
+  const rejected = members.filter((m) => m.status === 'rejected');
   return (
     <div className="view">
       <div className="vhead">설정</div>
       <p className="vsub">담당자와 팀 공통 기준을 설정합니다.</p>
+
+      {isAdmin && (
+        <div className="card">
+          <div className="card-title">회원 관리 (관리자)</div>
+          <div className="label" style={{ marginTop: 0 }}>승인 대기 {pending.length}</div>
+          {pending.length ? (
+            <div className="member-list">
+              {pending.map((m) => (
+                <div key={m.uid} className="member-row">
+                  <div className="member-info"><b>{m.displayName || '(이름 없음)'}</b><span>{m.email}</span></div>
+                  <div className="member-acts">
+                    <button className="mini ok" onClick={() => onApproveMember(m.uid)}>승인</button>
+                    <button className="mini no" onClick={() => onRejectMember(m.uid)}>거절</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : <p className="vsub" style={{ margin: '0 0 6px' }}>대기 중인 신청이 없습니다.</p>}
+
+          <div className="label">승인된 회원 {approved.length}</div>
+          <div className="member-list">
+            {approved.map((m) => (
+              <div key={m.uid} className="member-row">
+                <div className="member-info"><b>{m.displayName || '(이름 없음)'}</b><span>{m.email}</span></div>
+                <div className="member-acts">
+                  <button className="mini no" onClick={() => onRemoveMember(m.uid)}>접근 해제</button>
+                </div>
+              </div>
+            ))}
+            {!approved.length && <p className="vsub" style={{ margin: 0 }}>아직 승인된 회원이 없습니다.</p>}
+          </div>
+          {rejected.length > 0 && (
+            <>
+              <div className="label">거절됨 {rejected.length}</div>
+              <div className="member-list">
+                {rejected.map((m) => (
+                  <div key={m.uid} className="member-row">
+                    <div className="member-info"><b>{m.displayName || '(이름 없음)'}</b><span>{m.email}</span></div>
+                    <div className="member-acts">
+                      <button className="mini ok" onClick={() => onApproveMember(m.uid)}>승인</button>
+                      <button className="mini no" onClick={() => onRemoveMember(m.uid)}>삭제</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="card">
         <div className="card-title">담당자</div>

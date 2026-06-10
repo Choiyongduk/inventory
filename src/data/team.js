@@ -113,3 +113,8 @@ export const STORAGE_KEYS = {
   viewMode: 'fiti.inventory.viewMode',
   favorites: 'fiti.inventory.favorites',
 };
+
+// 관리자(가입 승인 권한) 구글 이메일. 추가하려면 여기와 firestore.rules 양쪽에 넣으세요.
+export const ADMIN_EMAILS = [
+  'cyd8964@gmail.com',
+];
