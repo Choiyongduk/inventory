@@ -120,8 +120,10 @@ export default function App() {
 
   useEffect(() => watchAuth(setAuthUser), []);
 
-  const isAdmin = !!authUser && ADMIN_EMAILS.includes(authUser.email || '');
-  const access = isAdmin || member?.status === 'approved';
+  // 통합 플랫폼 권한: 승인(status) + 재고 모듈 접근(role/allowedModules)로 판단.
+  const hasInventory = (m) => !!m && (m.role === 'team-admin' || m.role === 'team-user' || (m.allowedModules || []).includes('inventory'));
+  const isAdmin = member?.role === 'team-admin' || (!!authUser && ADMIN_EMAILS.includes(authUser.email || ''));
+  const access = isAdmin || (member?.status === 'approved' && hasInventory(member));
 
   // 로그인 사용자의 멤버십 문서 구독
   useEffect(() => {
@@ -958,7 +960,10 @@ function LedgerView({ inventory, logs, currentUser, onOpen, onDeleteLog }) {
   };
   const [scope, setScope] = useState('me');
   const today = todayKey();
-  const filtered = logs.filter((l) => (scope === 'all' ? true : l.handler === currentUser));
+  // 담당자 비교는 접두어(의장_) 무시 — 통합 이전 전 구 기록('의장_최용덕')과 새 이름('최용덕')을 함께 매칭.
+  const norm = (s) => (s || '').replace(/^의장_/, '');
+  const isMine = (l) => norm(l.handler) === norm(currentUser);
+  const filtered = logs.filter((l) => (scope === 'all' ? true : isMine(l)));
   const groups = filtered.reduce((acc, l) => {
     const day = (l.isoDate || '').slice(0, 10) || '기타';
     (acc[day] = acc[day] || []).push(l);
@@ -990,7 +995,7 @@ function LedgerView({ inventory, logs, currentUser, onOpen, onDeleteLog }) {
                 {groups[day].map((l) => (
                   <LogRow key={l._docId || `${l.item}-${l.time}`} log={l}
                     onOpen={() => openFromLog(l)}
-                    canDelete={l.handler === currentUser} onDelete={() => onDeleteLog(l)} />
+                    canDelete={isMine(l)} onDelete={() => onDeleteLog(l)} />
                 ))}
               </div>
             </div>

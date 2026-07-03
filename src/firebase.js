@@ -29,13 +29,15 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 
+// 통합 플랫폼(uijang-platform) Firebase. 재고관리는 이 공용 백엔드로 이전됨.
+// 로그인/승인/담당자 이름은 공용 users/{uid} 문서에서 관리(모든 모듈에서 이름 동일).
 export const firebaseConfig = {
-  apiKey: 'AIzaSyC2O0461bVf0jlqwZykQyF0Wwwn9Clp7dc',
-  authDomain: 'fiti-inventory.firebaseapp.com',
-  projectId: 'fiti-inventory',
-  storageBucket: 'fiti-inventory.firebasestorage.app',
-  messagingSenderId: '308634166032',
-  appId: '1:308634166032:web:8de520d69164a24390fb95',
+  apiKey: 'AIzaSyDKF1RZwITu2A8c4QOYLaOWb1_DRzU3Obw',
+  authDomain: 'uijang-platform.firebaseapp.com',
+  projectId: 'uijang-platform',
+  storageBucket: 'uijang-platform.firebasestorage.app',
+  messagingSenderId: '718519199006',
+  appId: '1:718519199006:web:e33066936d33678616150f',
 };
 
 export const app = initializeApp(firebaseConfig);
@@ -53,36 +55,59 @@ export function watchAuth(callback) {
   return onAuthStateChanged(auth, callback);
 }
 
-// 멤버십(가입 승인) 관리
+// ── 공용 계정(users/{uid}) 기반 멤버십 ──
+// 통합 플랫폼의 users 문서를 재고관리가 쓰던 member 형태로 변환.
+// name = displayName → 포털/모든 모듈에서 동일한 이름. status/role/allowedModules 로 접근 판단.
+function mapUser(uid, data = {}) {
+  return {
+    uid,
+    id: uid,
+    name: data.displayName || data.name || '',
+    displayName: data.displayName || '',
+    email: data.email || '',
+    status: data.status || 'pending',
+    role: data.role || '',
+    allowedModules: data.allowedModules || [],
+  };
+}
+// 이름은 접두어 없이 저장(예: '최용덕') — 포털/타 모듈과 동일하게 표시되도록.
+const stripPrefix = (n) => (n || '').replace(/^의장_/, '').trim();
+
 export function watchMember(uid, callback, onError) {
   return onSnapshot(
-    doc(db, COLLECTIONS.members, uid),
-    (snap) => callback(snap.exists() ? { id: snap.id, ...snap.data() } : null),
+    doc(db, 'users', uid),
+    (snap) => callback(snap.exists() ? mapUser(uid, snap.data()) : null),
     onError,
   );
 }
 export function watchMembers(callback, onError) {
-  return onSnapshot(collection(db, COLLECTIONS.members), (snap) => callback(mapSnapshot(snap)), onError);
+  return onSnapshot(
+    collection(db, 'users'),
+    (snap) => callback(snap.docs.map((d) => mapUser(d.id, d.data()))),
+    onError,
+  );
 }
 export async function requestMembership(user, name, approved = false) {
-  await setDoc(doc(db, COLLECTIONS.members, user.uid), {
-    uid: user.uid,
+  await setDoc(doc(db, 'users', user.uid), {
     email: user.email || '',
-    displayName: user.displayName || '',
-    name: name || '',
-    role: approved ? 'admin' : 'member',
+    displayName: stripPrefix(name) || user.displayName || '',
+    department: '의장소재팀',
+    role: approved ? 'team-admin' : 'team-user',
     status: approved ? 'approved' : 'pending',
+    allowedModules: [],
     createdAt: serverTimestamp(),
-  });
+  }, { merge: true });
 }
 export async function setMemberStatus(uid, status) {
-  await setDoc(doc(db, COLLECTIONS.members, uid), { status, updatedAt: serverTimestamp() }, { merge: true });
+  const patch = { status, updatedAt: serverTimestamp() };
+  if (status === 'approved') patch.approvedAt = serverTimestamp();
+  await setDoc(doc(db, 'users', uid), patch, { merge: true });
 }
 export async function setMemberName(uid, name) {
-  await setDoc(doc(db, COLLECTIONS.members, uid), { name, updatedAt: serverTimestamp() }, { merge: true });
+  await setDoc(doc(db, 'users', uid), { displayName: stripPrefix(name), updatedAt: serverTimestamp() }, { merge: true });
 }
 export async function removeMember(uid) {
-  await deleteDoc(doc(db, COLLECTIONS.members, uid));
+  await deleteDoc(doc(db, 'users', uid));
 }
 export function signInWithGoogle() {
   return signInWithPopup(auth, googleProvider);
